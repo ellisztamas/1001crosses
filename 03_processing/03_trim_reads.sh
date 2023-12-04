@@ -16,17 +16,11 @@
 #SBATCH --time=8:00:00
 #SBATCH --array=0-812
 
-# load packages
-module load build-env/f2022
-module load anaconda3/2023.03
-source ~/.bashrc
-conda activate 1001crosses
-
 i=$SLURM_ARRAY_TASK_ID
 
 # DATA #
-# Path to a working directory.
-workdir=/scratch-cbe/users/$(whoami)/crosses
+# Set working directory and load conda environment
+source 03_processing/00_setup.sh
 # Where the unzipped bam files are
 indir=$workdir/01_unzipped_fastq
 # Output file for trimmed files
@@ -52,3 +46,4 @@ cutadapt \
     --minimum-length 20 \
     --pair-filter=any \
     $read_pair_1 $read_pair_2
+if [ $? -eq 0 ] ; then echo "cutadapt completed successfully"; fi

@@ -2,6 +2,11 @@
 
 # Align reads to the TAIR10 reference genome using BWA
 
+# Input: trimmed, merged FASTQ files
+# Output: BAM files aligned to the TAIR10 genome
+
+# Tom Ellis, adapting code by Pieter Clauw, 24th November 2023
+
 # SLURM
 #SBATCH --job-name=align_reads
 #SBATCH --output=slurm/%x-%a.out
@@ -11,14 +16,12 @@
 #SBATCH --time=02:00:00
 #SBATCH --array=0-428
 
-# load packages
-module load build-env/f2022
-module load anaconda3/2023.03
-source ~/.bashrc
-conda activate 1001crosses
+ml build-env/f2021
+ml bwa/0.7.17-gcc-10.2.0
+ml samtools/1.14-gcc-10.2.0
 
-# Path to a working directory.
-workdir=/scratch-cbe/users/$(whoami)/crosses
+# Set working directory
+source 03_processing/00_setup.sh
 # Directory containing appropriately merged fastq files
 indir=$workdir/03_merged_fastq
 # Target directory for aligned reads
@@ -35,11 +38,16 @@ read1_fastq=${read1_array[$i]}
 read2_fastq=${read1_fastq/_R1_/_R2_}
 
 # Name for the aligned bam file.
-bam=${outdir}$(basename -s .trim.fastq.gz $read1_fastq).sort.bam
+bam=${outdir}/$(basename -s .trim.fastq.gz $read1_fastq).sort.bam
 bam=${bam/_R1_/_}
 
 # Align reads to the genome
 bwa mem -t 10 $genome $read1_fastq $read2_fastq | samtools sort -o $bam
+if [ $? -eq 0 ] ; then echo "BWA completed successfully"; fi
+
+# Index bam files
 samtools index $bam
+if [ $? -eq 0 ] ; then echo "Indexing BAM files completed successfully"; fi
+
 
 

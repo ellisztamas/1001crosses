@@ -7,7 +7,7 @@ structure in *Arabidopsis thaliana*.
 
 1. [Experimental design](#experimental-design)
 3. [Data](#data)
-4. [Dependencies](#dependencies)
+4. [Processing and analysis](#processing-and-analysis)
 5. [Author information](#author-information)
 6. [Acknowledgements](#acknowledgements)
 7. [License](#license)
@@ -22,21 +22,49 @@ structure in *Arabidopsis thaliana*.
 
 ### Phenotypes
 
-## Dependencies
+## Processing and analysis
 
-The project uses the following general packages:
+Scripts are separated into:
+- `02_library`: reusable functions/applications.
+- `03_processing`: data processing scripts to prepare raw data for further analysis
+    and peform quality control.
+- `05_results`: scripts to generate biological results.
 
-bcftools
-bwa
-cutadapt
-fastqc
-gemma
-multiqc
-parallel
-plink
-samtools
-snpmatch
+All scripts are intended to be run from the project root folder.
 
+Most of the scripts in `03_processing` save data in a **working directory**.
+This is set by default to the path of the `scratch-cbe` drive of the VBC CLIP
+cluster, which is optimised for large jobs with many temporary files.
+This obviously won't work on a different machine, so change this path as
+necessary.
+
+### Dependencies
+
+#### Conda environment
+
+A conda environment via the file `environment.yml` is provided with the necessary dependencies for running the scripts.
+Install the environment with 
+```
+conda env create -f environment.yml
+```
+
+Near the start of bash scripts you will see a line that says something like
+```
+module load build-env/f2022
+module load anaconda3/2023.03
+source ~/.bashrc
+conda activate 1001crosses
+```
+The first three lines of this load conda on the CLIP system.
+Adjust as necessary for your machine.
+
+#### R
+
+This Porject uses R 4.2.1.
+
+
+tidyverse
+googlesheets4
 
 ## Author information
 

@@ -22,8 +22,10 @@ i=${SLURM_ARRAY_TASK_ID}
 
 # Path with tarballed data
 indir=01_data/02_F8_unaligned_bams
-# Path to a working directory.
-workdir=/scratch-cbe/users/$(whoami)/crosses
+
+# Set working directory
+source 03_processing/00_setup.sh
+# Output directory
 outdir=$workdir/01_unzipped_fastq
 mkdir -p $outdir
 

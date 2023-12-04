@@ -6,6 +6,7 @@ channels:
 dependencies:
   - bcftools
   - bwa
+  - conda-forge::ncurses
   - cutadapt
   - fastqc
   - gemma
@@ -13,6 +14,10 @@ dependencies:
   - numpy
   - pandas
   - parallel
+  - pip
   - plink
   - python
   - samtools
+  - tabix
+  - pip:
+    - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
