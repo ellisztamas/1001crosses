@@ -6,6 +6,10 @@
 # and runs that sample through SNPmatch.
 # More on SNPmatch: https://github.com/Gregor-Mendel-Institute/SNPmatch
 #
+# Input: VCF for all F8s, SNPmatch database files.
+# Output: For each F8 separately, a human-readable CSV file sumamrising the JSON
+#   output of SNPmatch.
+#
 # Tom Ellis, adapting code by Pieter Clauw, 27th November 2023.
 
 # SLURM
@@ -17,7 +21,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --array=1-429
 
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 
 # Directory with the SNPmatch database files
 snpmatch=$workdir/06_snpmatch/db
@@ -30,7 +34,7 @@ sample_name=$(bcftools query -l $F8_snp_calls | sed -n "${i}p")
 results=$workdir/06_snpmatch/$sample_name
 mkdir -p $results
 # Directory to stage out the results
-outdir=03_processing/output/snpmatch/
+outdir=03_processing/pieters_sample_sheet/output/snpmatch/
 mkdir -p $outdir
 
 # VCF file for a single sample

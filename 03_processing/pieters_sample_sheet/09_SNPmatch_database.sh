@@ -15,7 +15,7 @@
 #SBATCH --time=08:00:00
 
 # Set working directory and load conda environment
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 
 # Input
 # SNP matrix file

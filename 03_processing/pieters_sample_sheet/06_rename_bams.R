@@ -10,8 +10,6 @@
 #' Tom Ellis, adapting code by Pieter Clauw, 25th November 2025
 
 library(tidyverse)
-library(googlesheets4)
-gs4_deauth()
 
 # Location of aligned bams
 bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/04_aligned_bam/'
@@ -25,39 +23,19 @@ bam_info <- tibble(
     filename, sep = '_', into = c('NGS_sample_ID', 'barcode', NA, NA), remove = F
   )
 
-# Plates 1-4 are in one google sheet, and plate 5 in another.
-# Note that Pieter Clauw found an error in the sheet for plate 5 (the plate was
-# processed upside down), which he manually corrected.
-sheets_list <- list(
-  plates1_4 = "https://docs.google.com/spreadsheets/d/16hyDkyUjRDIQiLbczuV986bWgC3MkNkHrtqGkJuUZs4/edit#gid=1348764971",
-  plate5    = "https://docs.google.com/spreadsheets/d/1ZnW0hLDiGwWzfNsCf-gubHBbM_T8H4F0svZGp47dvU8/edit#gid=0"
-)
-# Import the data sheets
-plate_info <- vector('list', 5)
-for(plate in 1:5){
-  # Decide whether the plate is 1-4 or 5
-  which_sheet <- ifelse(plate <= 4, 'plates1_4', 'plate5')
-  # Import the sheet
-  plate_info[[plate]] <- read_sheet(
-    sheets_list[[which_sheet]],
-    sheet = paste0("plate", plate),
-    range = paste0('plate', plate, '!A3:P99')
-    ) %>%
-    mutate(
-      'plate' = paste0('plate', plate)
-    )
-}
-plate_info <- do.call('rbind', plate_info)
+# Details of sequencing plates
+plate_info <- read_csv("01_data/02_F8_unaligned_bams/sequencing_plates_pieter.csv")
 
-
+# Line up sample IDs with BAM-file names
 plate_info <- plate_info %>%
-  rename_with(~ gsub(' ', '_', .x)) %>%
+  rename_with(~ gsub(' ', '_', .x)) %>% # Change spaces to underscores in column names
   mutate(
-    Sample_name = gsub(' ', '_', Sample_name),
-    barcode = paste0(Barcode7, Barcode5),
+    name = gsub(' ', '_', name), # Change spaces to underscores in the variable `name`
+    barcode = paste0(barcode2, barcode1),
     NGS_sample_ID = as.character(NGS_sample_ID)
     ) %>%
-  left_join(., bam_info, by = c('NGS_sample_ID', 'barcode'))
+  left_join(bam_info, by = c('NGS_sample_ID', 'barcode'))
+
 
 #' List entries with NA in the file path
 #' Most are rows 7 to 12 which were used for other projects
@@ -71,12 +49,9 @@ plate_info <- plate_info %>%
 # Rename BAM files to use the sample name.
 file.rename(
   from = paste0(plate_info$directory, plate_info$filename),
-  to   = paste0(plate_info$directory, plate_info$Sample_name, ".bam")
+  to   = paste0(plate_info$directory, plate_info$name, ".bam")
 )
 file.rename(
   from = paste0(plate_info$directory, plate_info$filename, '.bai'),
-  to   = paste0(plate_info$directory, plate_info$Sample_name, ".bam.bai")
+  to   = paste0(plate_info$directory, plate_info$name, ".bam.bai")
 )
-
-
-write_csv(plate_info, "03_processing/plate_info.csv")

@@ -20,7 +20,7 @@ i=$SLURM_ARRAY_TASK_ID
 
 # DATA #
 # Set working directory and load conda environment
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 # Where the unzipped bam files are
 indir=$workdir/01_unzipped_fastq
 # Output file for trimmed files

@@ -24,7 +24,7 @@ i=${SLURM_ARRAY_TASK_ID}
 indir=01_data/02_F8_unaligned_bams
 
 # Set working directory
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 # Output directory
 outdir=$workdir/01_unzipped_fastq
 mkdir -p $outdir

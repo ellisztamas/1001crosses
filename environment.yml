@@ -15,7 +15,7 @@ dependencies:
   - pandas
   - parallel
   - pip
-  - plink
+  - plink2
   - python
   - samtools
   - tabix

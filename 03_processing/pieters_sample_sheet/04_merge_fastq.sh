@@ -19,7 +19,7 @@
 #SBATCH --time=30:00
 
 # Set working directory
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 # Location of unmerged fastq files
 indir=${workdir}/02_trimmed_fastq
 # Target directory for merged fastq files

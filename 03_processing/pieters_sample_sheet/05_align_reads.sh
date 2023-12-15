@@ -21,7 +21,7 @@ ml bwa/0.7.17-gcc-10.2.0
 ml samtools/1.14-gcc-10.2.0
 
 # Set working directory
-source 03_processing/00_setup.sh
+source 03_processing/pieters_sample_sheet/00_setup.sh
 # Directory containing appropriately merged fastq files
 indir=$workdir/03_merged_fastq
 # Target directory for aligned reads

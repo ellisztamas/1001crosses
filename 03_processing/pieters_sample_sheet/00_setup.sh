@@ -11,8 +11,8 @@ echo "Loading working directory and Conda environment from 00_setup.sh"
 # This won't exist on other machines, so change it here if you have downloaded
 # the code somewhere else.
 workdir=/scratch-cbe/users/$(whoami)/crosses
-export $workdir
-# workdir=03_processing/output # example alternative working directory
+
+# workdir=03_processing/pieters_sample_sheet/output # example alternative working directory
 echo "Working directory: ${workdir}" 
 mkdir $workdir -p
 
