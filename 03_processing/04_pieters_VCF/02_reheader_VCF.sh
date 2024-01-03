@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# Reheader the VCF for the F8s with sample names and split by replicate.
+
+# Pieter's VCF file uses absolute paths to raw BAM files in the header
+# This script pulls them out in order, replaces them with sample names, and 
+# creates a new VCF file these shorter headers. Based on these names it then 
+# creates separate VCF files for F8 replicates 1 and 2.
+
+# Tom Ellis, 15th December 2023
+
+# SLURM
+#SBATCH --job-name=process_pieters_VCF
+#SBATCH --output=slurm/%x.out
+#SBATCH --error=slurm/%x.err
+#SBATCH --mem=20GB
+#SBATCH --qos=rapid
+#SBATCH --time=30:00
+
+date 
+
+module load build-env/f2022
+module load r/4.2.0-foss-2021b
+
+# Path to the VCF file for the F8s created by Pieter
+input_vcf=../crosses_continued/004.F8/001.genotyping/003.results/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC_crossesF8.vcf.gz
+
+# Filename for the old headers
+old_header=03_processing/pieters_VCF/vcf_header_to_change.txt
+# Filename to save the new headers. This is created inside the R script, so don't mess with it.
+new_header=03_processing/pieters_VCF/new_vcf_header.txt
+# File with samples to be kept
+samples_to_keep=03_processing/pieters_VCF/samples_to_keep.txt
+# Path to save the resulting VCF file.
+output_vcf=03_processing/pieters_VCF/F8_snp_matrix.vcf.gz
+# Path to save a VCF file with dubious samples removed
+purged_VCF=03_processing/pieters_VCF/F8_snp_matrix_purged.vcf.gz
+
+# Pull out the existing header
+bcftools query -l $input_vcf > $old_header
+# Replace absolute paths with sample names, and save as $new_header
+Rscript 03_processing/pieters_VCF/01_reorder_header.R
+# Swap the headers and keep only the samples confirmed by SNPmatch
+bcftools reheader --samples $new_header $input_vcf > $output_vcf
+bcftools view --samples-file $samples_to_keep $output_vcf > $purged_VCF
+
+# Tidy  up
+rm $old_header $new_header $samples_to_keep
+
+# Bash witchcraft to generate a comma-separated list of samples for each replicate:
+# 1. extract sample names,
+# 2. select only samples with 'rep1' in the name
+# 3. Convert from having one sample per row to a comma-separated list.
+# 4. Remove the trailing comma.
+rep1_samples=$(bcftools query -l $purged_VCF | grep "rep1" | tr '\n' ',' | sed -e 's/,$//')
+rep2_samples=$(bcftools query -l $purged_VCF | grep "rep2" | tr '\n' ',' | sed -e 's/,$//')
+# Create separate VCF files for replicates 1 and 2
+bcftools view -s $rep1_samples $purged_VCF > 03_processing/pieters_VCF/F8_snp_matrix_purged_rep1.vcf.gz
+bcftools view -s $rep2_samples $purged_VCF > 03_processing/pieters_VCF/F8_snp_matrix_purged_rep2.vcf.gz

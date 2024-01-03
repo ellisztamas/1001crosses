@@ -21,7 +21,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --array=1-429
 
-source 03_processing/pieters_sample_sheet/00_setup.sh
+source setup.sh
 
 # Directory with the SNPmatch database files
 snpmatch=$workdir/06_snpmatch/db
@@ -34,7 +34,7 @@ sample_name=$(bcftools query -l $F8_snp_calls | sed -n "${i}p")
 results=$workdir/06_snpmatch/$sample_name
 mkdir -p $results
 # Directory to stage out the results
-outdir=03_processing/pieters_sample_sheet/output/snpmatch/
+outdir=03_processing/03_pieters_sample_sheet/output/snpmatch/
 mkdir -p $outdir
 
 # VCF file for a single sample

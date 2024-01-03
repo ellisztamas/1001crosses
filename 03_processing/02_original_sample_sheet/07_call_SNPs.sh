@@ -21,7 +21,7 @@
 
 
 # Set working directory and load conda environment
-source 03_processing/pieters_sample_sheet/00_setup.sh
+source setup.sh
 # Directory containing aligned BAM files
 indir=$workdir/04_aligned_bam
 # generate file with location of bamfiles (one per line)

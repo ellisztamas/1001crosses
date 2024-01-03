@@ -32,11 +32,12 @@ Scripts are separated into:
 
 All scripts are intended to be run from the project root folder.
 
-Most of the scripts in `03_processing` save data in a **working directory**.
-This is set by default to the path of the `scratch-cbe` drive of the VBC CLIP
-cluster, which is optimised for large jobs with many temporary files.
+Most of the scripts load a conda environment and set a **working directory** via
+the script `setup.sh`.
+This working directry is set by default to the path of the `scratch-cbe` drive
+of the VBC CLIP cluster, which is optimised for large jobs with many temporary files.
 This obviously won't work on a different machine, so change this path as
-necessary.
+necessary. This can be done easily and only once by modifying `setup.sh`.
 
 ### Dependencies
 

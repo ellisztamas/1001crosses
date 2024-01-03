@@ -1,7 +1,7 @@
 
 library(tidyverse)
 
-snpmatch_files <- Sys.glob("03_processing/pieters_sample_sheet/output/snpmatch/*.csv")
+snpmatch_files <- Sys.glob("03_processing/02_original_sample_sheet/output/snpmatch/*.csv")
 snpmatch_files <- snpmatch_files[grep("_rep[12].csv", snpmatch_files)]
 
 sm_results <- lapply(snpmatch_files, read_csv, show_col_types=FALSE) %>%
@@ -21,7 +21,7 @@ sm_results <- sm_results %>%
 
 write_csv(
   sm_results,
-  "03_processing/pieters_sample_sheet/output/snpmatch/SNPmatch_summary.csv"
+  "03_processing/02_original_sample_sheet/output/snpmatch/SNPmatch_summary.csv"
   )
 
 sm_results %>%

@@ -32,8 +32,8 @@ conda activate 1001crosses
 i=$SLURM_ARRAY_TASK_ID
 
 # Path to a VCF files with dubious samples removed
-rep1=03_processing/pieters_VCF/F8_snp_matrix_purged_rep1.vcf.gz
-rep2=03_processing/pieters_VCF/F8_snp_matrix_purged_rep2.vcf.gz
+rep1=03_processing/04_pieters_VCF/F8_snp_matrix_purged_rep1.vcf.gz
+rep2=03_processing/04_pieters_VCF/F8_snp_matrix_purged_rep2.vcf.gz
 # VCF file for the parents
 parents=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
 # Make a Bash array of the three VCF files

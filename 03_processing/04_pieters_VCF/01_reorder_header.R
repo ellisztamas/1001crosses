@@ -16,13 +16,23 @@ old_header <- read_csv(
 )
 
 # Reorder sample names match the old VCF header
-old_header %>%
+new_header <- old_header %>%
   mutate(
     filename = basename(filename)
   ) %>%
   left_join(plate_info, by='filename') %>%
-  mutate(Sample_name = ifelse(genoSelection == "yes", Sample_name, paste0("xx_",Sample_name))) %>%
-  select(Sample_name) %>%
+  mutate(
+    Sample_name = ifelse(genoSelection == "yes", Sample_name, paste0("xx_", Sample_name))
+    ) %>%
+  select(Sample_name)
+
+new_header %>%
   write_delim(
     "03_processing/pieters_VCF/new_vcf_header.txt", col_names = FALSE, delim = " "
     )
+
+new_header %>%
+  filter(!grepl("xx_", Sample_name)) %>%
+  write_delim(
+    "03_processing/pieters_VCF/samples_to_keep.txt", col_names = FALSE, delim = " "
+  )

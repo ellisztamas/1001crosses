@@ -22,7 +22,7 @@ source ~/.bashrc
 conda activate 1001crosses
 
 # Paths to input files
-F8_snp_matrix=03_processing/pieters_sample_sheet/output/F8_snp_matrix.vcf.gz
+F8_snp_matrix=03_processing/02_original_sample_sheet/output/F8_snp_matrix.vcf.gz
 parental_snp_matrix=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
 gemma_input_files=05_results/04_gwas_ft10/gemma_input_files
 # Output directory for GEMMA results and temporary files.
@@ -61,3 +61,5 @@ echo "Running GEMMA on the parents..."
   --outdir $outdir \
   --gemma_args "${gemma_args}"
 if [ $? -eq 0 ] ; then echo "done.\n\n"; fi
+
+date

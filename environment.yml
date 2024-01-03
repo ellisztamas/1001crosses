@@ -19,5 +19,8 @@ dependencies:
   - python
   - samtools
   - tabix
+  - vcftools
   - pip:
     - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
+    - scikit-allel
+    - h5py

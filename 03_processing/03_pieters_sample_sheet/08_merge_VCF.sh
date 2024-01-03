@@ -17,7 +17,7 @@
 #SBATCH --time=01:00:00
 
 # Set working directory
-source 03_processing/pieters_sample_sheet/00_setup.sh
+source setup.sh
 
 # Input data
 # Directory containing SNP calls for each chromosome separately.
@@ -34,7 +34,7 @@ VCF_chr5=$indir/F8_snp_matrix_chr5.vcf.gz
 vcf_with_full_paths=$indir/F8_snp_matrix_full_paths.vcf.gz
 vcf_with_sample_names=$indir/F8_snp_matrix.vcf.gz
 # Directory to stage out the resulting SNP matrix
-outdir=03_processing/pieters_sample_sheet/output
+outdir=03_processing/03_pieters_sample_sheet/output
 
 # Concatenate VCF files
 bcftools concat \
