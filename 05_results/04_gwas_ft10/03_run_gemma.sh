@@ -19,21 +19,45 @@ date
 module load build-env/f2022
 module load anaconda3/2023.03
 source ~/.bashrc
-conda activate gemma
+conda activate 1001crosses
 
 # Paths to input files
-vcf=03_processing/pieters_sample_sheet/output/F8_snp_matrix.vcf.gz
-pheno_file=05_results/03_gwas_ft10/input/ft10_rep1.tsv
-covariates=05_results/03_gwas_ft10/input/covariates_rep1.tsv
-outdir=05_results/03_gwas_ft10/output
+F8_snp_matrix=03_processing/pieters_sample_sheet/output/F8_snp_matrix.vcf.gz
+parental_snp_matrix=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
+gemma_input_files=05_results/04_gwas_ft10/gemma_input_files
+# Output directory for GEMMA results and temporary files.
+outdir=05_results/04_gwas_ft10/output
+mkdir -p $outdir
 # Additional arguments passed to GEMMA
+# Run all three kinds of statistical test using a minor-allele-frequency of 0.05
 gemma_args="-lmm 4 -maf 0.05"
 
+echo "Running GEMMA on replicate 1 of the F8s..."
 02_library/run_GEMMA.sh \
-  --vcf $vcf \
-  --phenotypes $pheno_file \
+  --vcf $F8_snp_matrix \
+  --phenotypes $gemma_input_files/ft10_rep1.tsv \
   --outdir $outdir \
-  --covariates $covariates \
+  --covariates $gemma_input_files/ft10_rep1_covariates.tsv \
   --gemma_args "${gemma_args}"
+if [ $? -eq 0 ] ; then echo "done.\n\n"; fi
 
 date
+
+echo "Running GEMMA on replicate 2 of the F8s..."
+02_library/run_GEMMA.sh \
+  --vcf $F8_snp_matrix \
+  --phenotypes $gemma_input_files/ft10_rep2.tsv \
+  --outdir $outdir \
+  --covariates $gemma_input_files/ft10_rep2_covariates.tsv \
+  --gemma_args "${gemma_args}"
+if [ $? -eq 0 ] ; then echo "done.\n\n"; fi
+
+date
+
+echo "Running GEMMA on the parents..."
+02_library/run_GEMMA.sh \
+  --vcf $parental_snp_matrix \
+  --phenotypes $gemma_input_files/ft10_parents.tsv \
+  --outdir $outdir \
+  --gemma_args "${gemma_args}"
+if [ $? -eq 0 ] ; then echo "done.\n\n"; fi

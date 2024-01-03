@@ -1,0 +1,203 @@
+---
+title: "Genome-wide association on flowering time at 10°C"
+author: "Tom Ellis"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+
+library("tidyverse")
+library("ggpubr")
+
+source("02_library/manhattan_plot.R")
+```
+
+```{import-data}
+
+ft10_files <- list(
+  rep1="05_results/04_gwas_ft10/output/ft10_rep1.assoc.txt",
+  rep2="05_results/04_gwas_ft10/output/ft10_rep2.assoc.txt",
+  parents='05_results/04_gwas_ft10/output/ft10_parents.assoc.txt'
+)
+
+ft10_gwas <- lapply(ft10_files, function(filename){
+  read_tsv(filename, show_col_types = FALSE) %>%
+    add_base_pair_positions()
+})
+
+```
+
+```{r manhattan-plots, fig.height=25/2.54, fig.width=16.9}
+
+# Manhattan plots hint at peaks...
+
+ggarrange(
+  manhattan_plot(
+    chr=ft10_gwas$parents$chr,
+    pos=ft10_gwas$parents$ps,
+    pvalue=ft10_gwas$parents$p_lrt,
+    signif_cutoff = 0.05, fraction_to_keep = 0.01,
+    title = "Parents"
+  ),
+  
+  manhattan_plot(
+    chr=ft10_gwas$rep1$chr,
+    pos=ft10_gwas$rep1$ps,
+    pvalue=ft10_gwas$rep1$p_lrt,
+    signif_cutoff = 0.05, fraction_to_keep = 0.01,
+    title = "Replicate 1"
+  ),
+  
+  manhattan_plot(
+    chr=ft10_gwas$rep2$chr,
+    pos=ft10_gwas$rep2$ps,
+    pvalue=ft10_gwas$rep2$p_lrt,
+    signif_cutoff = 0.05, fraction_to_keep = 0.01,
+    title = "Replicate 2"
+  ),
+  
+  nrow=3, ncol=1
+)
+
+ggsave(
+  filename = "05_results/04_gwas_ft10/output/plot_manhattan.png",
+  bg='white',
+  device = 'png',
+  units = 'cm', width = 16.9, height =25
+)
+```
+
+```{r effect-sizes, fig.width=16.9/2.54}
+
+ggarrange(
+  inner_join(
+    ft10_gwas$rep1 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$rep2 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep1", '_rep2')
+  ) %>% 
+    ggplot(aes(x= beta_rep1, y = beta_rep2)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "Effect sizes (F8s, rep. 1)",
+      y = "Effect sizes (F8s, rep. 2)"
+    ) +
+    theme_bw(),
+  
+  inner_join(
+    ft10_gwas$rep1 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$parents %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep", '_parents')
+  ) %>% 
+    ggplot(aes(x= beta_parents, y = beta_rep)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "Effect sizes (parents)",
+      y = "Effect sizes (F8s, rep. 1)"
+    ) +
+    theme_bw(),
+  
+  inner_join(
+    ft10_gwas$rep2 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$parents %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep", '_parents')
+  ) %>% 
+    ggplot(aes(y = beta_rep, x= beta_parents)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "Effect sizes (parents)",
+      y = "Effect sizes (F8s, rep. 2)"
+    ) +
+    theme_bw(),
+  
+  nrow =1, ncol=3
+)
+
+ggsave(
+  filename = "05_results/04_gwas_ft10/output/plot_effect_sizes.png",
+  bg='white',
+  device = 'png',
+  units = 'cm', width = 16.9, height =15
+)
+
+```
+
+```{r pvalues, fig.width=16.9/2.54}
+
+ggarrange(
+  inner_join(
+    ft10_gwas$rep1 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$rep2 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep1", '_rep2')
+  ) %>% 
+    ggplot(aes(x= -log10(p_lrt_rep1), y = -log10(p_lrt_rep2))) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F8s, rep1)"
+    ) +
+    theme_bw(),
+  
+  inner_join(
+    ft10_gwas$rep1 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$parents %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep", '_parents')
+  ) %>% 
+    ggplot(aes(x= -log10(p_lrt_parents), y = -log10(p_lrt_rep))) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F8s, rep1)"
+    ) +
+    theme_bw(),
+  
+  inner_join(
+    ft10_gwas$rep2 %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    ft10_gwas$parents %>% 
+      dplyr::select(chr, ps, p_lrt, beta),
+    by = c("chr", "ps"),
+    suffix = c("_rep", '_parents')
+  ) %>% 
+    ggplot(aes(y = -log10(p_lrt_rep), x= -log10(p_lrt_parents))) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1) +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F8s, rep1)"
+    ) +
+    theme_bw(),
+  
+  ncol=3
+)
+
+ggsave(
+  filename = "05_results/04_gwas_ft10/output/plot_pvalues.png",
+  bg='white',
+  device = 'png',
+  units = 'cm', width = 16.9, height =15
+)
+
+```
+
