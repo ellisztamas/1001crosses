@@ -5,7 +5,7 @@
 
 # Tom Ellis, 27th November 2023
 
-echo "Loading working directory and Conda environment from 00_setup.sh"
+echo "Loading working directory and Conda environment from setup.sh"
 
 # Data processing was done on a special drive for large jobs on the VBC CLIP cluster
 # This won't exist on other machines, so change it here if you have downloaded

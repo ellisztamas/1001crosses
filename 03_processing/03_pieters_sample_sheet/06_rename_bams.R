@@ -13,7 +13,7 @@ library(tidyverse)
 
 # Location of aligned bams
 bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/04_aligned_bam/'
-bam_files <- list.files(path = bam_dir, pattern = '*.sort.bam$')
+bam_files <- list.files(path = bam_dir, pattern = '*.sort.dedup.bam$')
 # Tible giving directory, NGS sample ID, and barcode sequence.
 bam_info <- tibble(
   'directory' = bam_dir,
@@ -35,7 +35,6 @@ plate_info <- plate_info %>%
     NGS_sample_ID = as.character(NGS_sample_ID)
     ) %>%
   left_join(bam_info, by = c('NGS_sample_ID', 'barcode'))
-
 
 #' List entries with NA in the file path
 #' Most are rows 7 to 12 which were used for other projects

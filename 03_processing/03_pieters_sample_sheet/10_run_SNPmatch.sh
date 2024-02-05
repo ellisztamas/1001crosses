@@ -26,7 +26,7 @@ source setup.sh
 # Directory with the SNPmatch database files
 snpmatch=$workdir/06_snpmatch/db
 # VCF files with SNP calls for each sample
-F8_snp_calls=$workdir/05_snp_calls/F8_snp_matrix.vcf.gz
+F8_snp_calls=$workdir/05_snp_calls/F8_snp_matrix_mac20.vcf.gz
 # Sample name for this job
 i=$SLURM_ARRAY_TASK_ID
 sample_name=$(bcftools query -l $F8_snp_calls | sed -n "${i}p")

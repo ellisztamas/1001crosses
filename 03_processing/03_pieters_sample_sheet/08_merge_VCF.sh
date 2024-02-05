@@ -29,10 +29,10 @@ VCF_chr3=$indir/F8_snp_matrix_chr3.vcf.gz
 VCF_chr4=$indir/F8_snp_matrix_chr4.vcf.gz
 VCF_chr5=$indir/F8_snp_matrix_chr5.vcf.gz
 
-# Target files
+# Output files
 # File name for the concatenated SNP matrix
 vcf_with_full_paths=$indir/F8_snp_matrix_full_paths.vcf.gz
-vcf_with_sample_names=$indir/F8_snp_matrix.vcf.gz
+vcf_with_sample_names=$indir/F8_snp_matrix_mac20.vcf.gz
 # Directory to stage out the resulting SNP matrix
 outdir=03_processing/03_pieters_sample_sheet/output
 

@@ -19,7 +19,7 @@ source setup.sh
 
 # Input
 # SNP matrix file
-snp_matrix=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
+snp_matrix=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
 
 # Output directory for the database files
 outdir=$workdir/06_snpmatch/db
