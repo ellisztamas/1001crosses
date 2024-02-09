@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 
 # Trim adaptors adapters from raw fastq files.
-
-# Input: raw fastq files
-# Output: The same fastq files without adapter sequences
+# 
+# Input:
+    # raw fastq files
+# Output:
+    # The same fastq files without adapter sequences
 #
 # Tom Ellis, adapting code by Pieter Clauw, 24th November 2023
 
 # SLURM
 #SBATCH --mem=20GB
-#SBATCH --job-name=trim_adaptors
+#SBATCH --job-name=trim_reads
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
 #SBATCH --qos=medium
 #SBATCH --time=8:00:00
 #SBATCH --array=0-812
-
-i=$SLURM_ARRAY_TASK_ID
 
 # DATA #
 # Set working directory and load conda environment
@@ -30,11 +30,17 @@ mkdir -p $outdir
 # Prepare file names
 # Identify read pairs for matching fastq files (R1 and R2; I1 and I2 contain the barcodes)
 read_array=($indir/**/demultiplexed/**/*_R1_*.fastq.gz)
-read_pair_1=${read_array[$i]}
+read_pair_1=${read_array[$SLURM_ARRAY_TASK_ID]}
 read_pair_2=${read_pair_1/_R1_/_R2_}
 # prepare locations of trimmed fastq files
 trimmed_read_1=${outdir}/$(basename -s .fastq.gz $read_pair_1).trim.fastq.gz 
 trimmed_read_2=${outdir}/$(basename -s .fastq.gz $read_pair_2).trim.fastq.gz
+
+echo "read 1: $read_pair_1"
+echo "read 2: $read_pair_2"
+
+echo "trimmed read 1: $trimmed_read_1"
+echo "trimmed read 2: $trimmed_read_2"
 
 # CUTADAPT #
 cutadapt \
@@ -43,7 +49,9 @@ cutadapt \
     -a CTGTCTCTTATACACATCT \
     -A CTGTCTCTTATACACATCT \
     -q 20 \
+    -cut 15 \
     --minimum-length 20 \
     --pair-filter=any \
     $read_pair_1 $read_pair_2
+    
 if [ $? -eq 0 ] ; then echo "cutadapt completed successfully"; fi

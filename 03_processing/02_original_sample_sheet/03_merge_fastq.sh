@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
-# Merge FASTQ files that are split over lanes
+# Merge FASTQ files that are split over lanes and run fastqc
 #
 # Samples from sequencing run H32TKDSX5 are split over two lanes.
-# This script concatenates the split fastq files into a single files for each sample
-
-# Input: trimmed FASTQ file from two different sequencing runs, some split over two files
-# Output: A folder of FASTQ files merged where necessary
+# This script concatenates the split fastq files into a single files for each sample.
+# It then runs fastqc and multiqc on the output
+# 
+# Input: 
+    # Trimmed FASTQ file from two different sequencing runs, some split over two files
+# Output:
+    # A folder of FASTQ files merged where necessary
 #
 # Tom Ellis, adapting code by Pieter Clauw, 24th November 2023
 
@@ -16,7 +19,7 @@
 #SBATCH --error=slurm/%x.err
 #SBATCH --mem=20GB
 #SBATCH --qos=rapid
-#SBATCH --time=30:00
+#SBATCH --time=1:00:00
 
 # Set working directory
 source setup.sh
@@ -25,6 +28,9 @@ indir=${workdir}/02_trimmed_fastq
 # Target directory for merged fastq files
 outdir=${workdir}/03_merged_fastq
 mkdir -p $outdir
+# Directory for fastqc results
+fastqc_dir=$outdir/qc
+mkdir -p $fastqc_dir
 
 files_to_merge=($(find $indir -type f -name '*_L003_*.trim.fastq.gz'))
 

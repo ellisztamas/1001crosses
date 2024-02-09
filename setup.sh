@@ -11,15 +11,15 @@ echo "Loading working directory and Conda environment from setup.sh"
 # This won't exist on other machines, so change it here if you have downloaded
 # the code somewhere else.
 workdir=/scratch-cbe/users/$(whoami)/crosses
-
-# workdir=03_processing/pieters_sample_sheet/output # example alternative working directory
-echo "Working directory: ${workdir}" 
+# workdir=03_processing/workdir # example alternative working directory
+echo "Working directory: ${workdir}"
 mkdir $workdir -p
+if [ $? -ne 0 ] ; then 
+echo "The working directory could not be created at the path given in setup.sh."
+echo "Check that the directory exists on your machine and is writable."
+fi 
 
 # Load conda environment
 # The first three lines are also CLIP-specific
 # If you haven't already, install the environment with `conda env create -f environment.yml`
-module load build-env/f2022
-module load anaconda3/2023.03
-source ~/.bashrc
-conda activate 1001crosses
+source activate /users/$(whoami)/.conda/envs/epiclines
