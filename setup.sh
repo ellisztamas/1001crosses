@@ -22,4 +22,4 @@ fi
 # Load conda environment
 # The first three lines are also CLIP-specific
 # If you haven't already, install the environment with `conda env create -f environment.yml`
-source activate /users/$(whoami)/.conda/envs/epiclines
+source activate /users/$(whoami)/.conda/envs/1001crosses
