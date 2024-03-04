@@ -18,8 +18,12 @@ dependencies:
   - pip
   - plink2
   - python
+  - r-base
+  - r-ggplot2
+  - r-vctrs=0.5.1
   - samtools
   - tabix
+  - trim-galore
   - vcftools
   - pip:
     - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"

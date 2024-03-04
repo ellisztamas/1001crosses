@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 # Trim adaptors adapters from raw fastq files and run fastqc on the output.
+# This also attempts to run multiqc on the aggregate output - this required more
+# memory than allocated, so is not used.
 # 
 # Input:
     # raw fastq files
@@ -53,8 +55,8 @@ trim_galore \
     $read_pair_1 $read_pair_2
 if [ $? -eq 0 ] ; then echo "Trim Galore! completed successfully"; fi
 
-# If this is the last job pair of files to process, then also run multiqc
-if [ $SLURM_ARRAY_TASK_ID -eq 858 ]
-then
-    multiqc -outdir ${multiqc_dir}/multiqic_after_trimming.html ${outdir}
-fi
+# # If this is the last job pair of files to process, then also run multiqc
+# if [ $SLURM_ARRAY_TASK_ID -eq 812 ]
+# then
+#     multiqc -outdir ${multiqc_dir}/multiqc_after_trimming.html ${qcdir}
+# fi

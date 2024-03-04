@@ -12,15 +12,15 @@
 library(tidyverse)
 
 # Location of aligned bams
-bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/04_aligned_bam/'
-bam_files <- list.files(path = bam_dir, pattern = '*.sort.bam$')
+bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/05_base_recalibration/'
+bam_files <- list.files(path = bam_dir, pattern = '*.bam$')
 # Tible giving directory, NGS sample ID, and barcode sequence.
 bam_info <- tibble(
   'directory' = bam_dir,
   'filename' = bam_files
 ) %>%
   separate(
-    filename, sep = '_', into = c('NGS_sample_ID', 'barcode', NA, NA), remove = F
+    filename, sep = '_', into = c('NGS_sample_ID', 'barcode', NA, NA, NA), remove = F
   )
 
 # Details of sequencing plates
@@ -38,8 +38,7 @@ plate_info <- plate_info %>%
 
 
 #' List entries with NA in the file path
-#' Most are rows 7 to 12 which were used for other projects
-#' The remaining three are real samples for which there is no library available.
+#' Three are real samples for which there is no library available.
 plate_info %>%
   filter(is.na(directory))
 # Filter them out.
@@ -52,6 +51,9 @@ file.rename(
   to   = paste0(plate_info$directory, plate_info$name, ".bam")
 )
 file.rename(
-  from = paste0(plate_info$directory, plate_info$filename, '.bai'),
-  to   = paste0(plate_info$directory, plate_info$name, ".bam.bai")
+  from = paste0(plate_info$directory,
+                gsub(pattern = "\\.bam$", ".bai", plate_info$filename)
+                ),
+  to   = paste0(plate_info$directory, plate_info$name, ".bai")
 )
+

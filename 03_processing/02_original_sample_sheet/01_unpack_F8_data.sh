@@ -26,6 +26,7 @@ indir=01_data/02_F8_unaligned_bams
 # Output directories
 outdir=$workdir/01_unzipped_fastq
 mkdir -p $outdir
+# Local project directory to copy the multiqc report
 projdir=03_processing/02_original_sample_sheet/output/multiqc
 mkdir -p $projdir
 
@@ -40,6 +41,8 @@ fi
 
 # Unzip raw data to the working directory
 tar -xzf $infile --directory  ${outdir}
+
+
 
 qc_dir=$outdir/$(basename -s .tar.gz $infile)/qc
 cp ${qc_dir}/*multiqc*html $projdir

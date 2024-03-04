@@ -29,7 +29,7 @@ bam_list=${indir}/bam_list.txt
 # Location of the reference genome to map to.
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
 # SNP matrix file
-snp_matrix=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
+parental_SNP_matrix=01_data/03_parental_genotypes/filtered_parental_SNP_matrix_mac20.vcf.gz
 
 # Output directory
 outdir=$workdir/05_snp_calls
@@ -43,7 +43,7 @@ targets_file=$outdir/targets_file${chr}.tsv.gz
 ls -d ${indir}/*.bam > $bam_list
 
 # create targets file
-bcftools query -r Chr${chr} -f'%CHROM\t%POS\t%REF,%ALT\n' $snp_matrix | \
+bcftools query -r Chr${chr} -f'%CHROM\t%POS\t%REF,%ALT\n' $parental_SNP_matrix | \
     awk '{gsub(/Chr/,"",$1)} {print $1, $2, $3}' OFS='\t' | \
     bgzip -c > $targets_file
 tabix -s1 -b2 -e2 $targets_file

@@ -18,9 +18,44 @@ structure in *Arabidopsis thaliana*.
 
 ### Design
 
+Random pairs of 217 accessions from Sweden (that show strong population
+structure) were crossed. Most of these crosses were reciprocal. The whole crossing
+scheme was repeated to give two replicates of a bit more than 200 lines in 
+duplicate. Each line was maintained by single-line descent for nine generations.
+
 ### Sequence data
 
+#### Parental accessions
+
+Sequence data for the parents are taken from a VCF file produced by Fernando
+Rabanal from
+
+> Brachi, Benjamin, et al. "Plant genetic effects on microbial hubs impact host fitness in repeated field trials."Proceedings of the National Academy of Sciences 119.30 (2022): e2201285119
+
+This is a reanalysis of previously published data from the [1001 genomes project](https://1001genomes.org/)
+updated with newer SNP calling methods.
+
+#### F8 genotypes
+
+429 lines were sequenced at the F8 generation by Pieter Clauw.
+See NGS master list plates 2022-007 and 2022-008.
+
 ### Phenotypes
+
+#### Flowering time
+
+Joanna Gunis measured flowering time in the F8s.
+
+Tom Ellis repeated this so that parents and offspring were grown in the same 
+environment. Tom grew three replicates of all parents offspring (total = 637) in
+Spring 2024 at 10°C.
+
+#### Seed size
+
+Tal Dahan sent seeds for the F8s and the parents (from the 2017 seed stock) to 
+be measured by Boxeed in the Czech Republic. Since these cohorts are from
+different maternal environments we also plan to send the F9s and parents from 
+the flowering time experiment when these are mature.
 
 ## Processing and analysis
 
@@ -28,6 +63,7 @@ Scripts are separated into:
 - `02_library`: reusable functions/applications.
 - `03_processing`: data processing scripts to prepare raw data for further analysis
     and peform quality control.
+- `04_output`: Deprecated.
 - `05_results`: scripts to generate biological results.
 
 All scripts are intended to be run from the project root folder.
@@ -61,11 +97,7 @@ Adjust as necessary for your machine.
 
 #### R
 
-This Porject uses R 4.2.1.
-
-
-tidyverse
-googlesheets4
+This project uses R 4.2.1 and the tidyverse suite of packages.
 
 ## Author information
 
