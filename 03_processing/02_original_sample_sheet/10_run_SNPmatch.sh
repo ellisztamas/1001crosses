@@ -6,9 +6,11 @@
 # and runs that sample through SNPmatch.
 # More on SNPmatch: https://github.com/Gregor-Mendel-Institute/SNPmatch
 #
-# Input: VCF for all F8s, SNPmatch database files.
-# Output: For each F8 separately, a human-readable CSV file sumamrising the JSON
-#   output of SNPmatch.
+# Input:
+#    VCF for all F8s, SNPmatch database files.
+# Output:
+#    For each F8 separately, a human-readable CSV file sumamrising the JSON
+#    output of SNPmatch.
 #
 # Tom Ellis, adapting code by Pieter Clauw, 27th November 2023.
 
@@ -16,22 +18,22 @@
 #SBATCH --job-name=run_SNPmatch
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
-#SBATCH --mem=3GB
-#SBATCH --qos=short
-#SBATCH --time=8:00:00
-#SBATCH --array=1-429
+#SBATCH --mem=1GB
+#SBATCH --qos=rapid
+#SBATCH --time=1:00:00
+#SBATCH --array=0-429
 
 source setup.sh
 
 # Directory with the SNPmatch database files
-snpmatch=$workdir/06_snpmatch/db
+snpmatch=$workdir/09_snpmatch_db
 # VCF files with SNP calls for each sample
-F8_snp_calls=$workdir/05_snp_calls/F8_snp_matrix.vcf.gz
+F8_snp_calls=$workdir/07_snp_calls/F8_snp_matrix.vcf.gz
 # Sample name for this job
 i=$SLURM_ARRAY_TASK_ID
 sample_name=$(bcftools query -l $F8_snp_calls | sed -n "${i}p")
 # Directory for the output
-results=$workdir/06_snpmatch/$sample_name
+results=$workdir/10_snpmatch/$sample_name
 mkdir -p $results
 # Directory to stage out the results
 outdir=03_processing/02_original_sample_sheet/output/snpmatch/
@@ -50,7 +52,6 @@ snpmatch cross \
     -d $snpmatch/parental_snp_matrix.hdf5 \
     -e $snpmatch/parental_snp_matrix.acc.hdf5 \
     -b 200000 \
-    -v \
     -o $results/$sample_name
 if [ $? -eq 0 ] ; then echo "SNPmatch completed successfully"; fi
 

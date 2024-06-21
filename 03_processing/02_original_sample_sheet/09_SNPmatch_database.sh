@@ -10,19 +10,19 @@
 #SBATCH --job-name=snpmatch_db
 #SBATCH --output=slurm/%x.out
 #SBATCH --error=slurm/%x.err
-#SBATCH --mem=20GB
+#SBATCH --mem=10GB
 #SBATCH --qos=short
-#SBATCH --time=08:00:00
+#SBATCH --time=04:00:00
 
 # Set working directory and load conda environment
 source setup.sh
 
 # Input
 # SNP matrix file
-snp_matrix=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
+snp_matrix=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
 
 # Output directory for the database files
-outdir=$workdir/06_snpmatch/db
+outdir=$workdir/09_snpmatch_db
 mkdir -p $outdir
 
 # Unzip the SNP matrix
@@ -32,3 +32,6 @@ gunzip -c $snp_matrix > $outdir/unzipped_snp_matrix.vcf
 snpmatch makedb \
     -i $outdir/unzipped_snp_matrix.vcf \
     -o $outdir/parental_snp_matrix
+
+# tidy up
+rm $outdir/unzipped_snp_matrix.vcf
