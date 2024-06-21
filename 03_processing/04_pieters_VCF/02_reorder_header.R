@@ -1,4 +1,20 @@
-#'
+#' Create the files needed to correct the sample headers in Pieter's VCF file.
+#' 
+#' The headers in Pieter's bam file are full paths. I want to replace these with
+#' sample names, and also exclude samples that Pieter was not able to validate.
+#' This creates text files to do this, and the actual heavy lifting happens in
+#' 01_reheader_vcf.sh
+#' 
+#' Inputs:
+#'    plate_info.csv: A field created by Pieter summarising sequencing information
+#'        Importantly, the last column 'geno_select' contains his assessment of
+#'        whether each sample should be included based on his SNPmatch results.
+#'    vcf_header_to_change.txt: list of sample headers in Pieter's VCF file that
+#'        include full paths to files.
+#' Outputs:
+#'    new_vcf_header.txt: list of new header names for each sample in vcf_header_to_change.txt
+#'    samples_to_keep.txt: list of samples that could be validated
+#' 
 library(tidyverse)
 
 # Pieter's file giving samples including how he checked them. See:

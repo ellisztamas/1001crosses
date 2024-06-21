@@ -19,33 +19,35 @@
 
 date 
 
-module load build-env/f2022
-module load r/4.2.0-foss-2021b
+source setup.sh
+
+# == Inputs ==
 
 # Path to the VCF file for the F8s created by Pieter
 input_vcf=../crosses_continued/004.F8/001.genotyping/003.results/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC_crossesF8.vcf.gz
 
+# === Output files ===
+
 # Filename for the old headers
-old_header=03_processing/pieters_VCF/vcf_header_to_change.txt
+old_header=03_processing/04_pieters_VCF/output/vcf_header_to_change.txt
 # Filename to save the new headers. This is created inside the R script, so don't mess with it.
-new_header=03_processing/pieters_VCF/new_vcf_header.txt
+new_header=03_processing/04_pieters_VCF/output/new_vcf_header.txt
 # File with samples to be kept
-samples_to_keep=03_processing/pieters_VCF/samples_to_keep.txt
+samples_to_keep=03_processing/04_pieters_VCF/output/samples_to_keep.txt
 # Path to save the resulting VCF file.
-output_vcf=03_processing/pieters_VCF/F8_snp_matrix.vcf.gz
+vcf_with_all_samples=03_processing/04_pieters_VCF/output/F8_snp_matrix.vcf.gz
 # Path to save a VCF file with dubious samples removed
-purged_VCF=03_processing/pieters_VCF/F8_snp_matrix_purged.vcf.gz
+purged_VCF=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged.vcf.gz
+
+# === Script ===
 
 # Pull out the existing header
 bcftools query -l $input_vcf > $old_header
 # Replace absolute paths with sample names, and save as $new_header
-Rscript 03_processing/pieters_VCF/01_reorder_header.R
+Rscript 03_processing/04_pieters_VCF/output/01_reorder_header.R
 # Swap the headers and keep only the samples confirmed by SNPmatch
-bcftools reheader --samples $new_header $input_vcf > $output_vcf
-bcftools view --samples-file $samples_to_keep $output_vcf > $purged_VCF
-
-# Tidy  up
-rm $old_header $new_header $samples_to_keep
+bcftools reheader --samples $new_header $input_vcf > $vcf_with_all_samples
+bcftools view --samples-file $samples_to_keep $vcf_with_all_samples > $purged_VCF
 
 # Bash witchcraft to generate a comma-separated list of samples for each replicate:
 # 1. extract sample names,
@@ -55,5 +57,9 @@ rm $old_header $new_header $samples_to_keep
 rep1_samples=$(bcftools query -l $purged_VCF | grep "rep1" | tr '\n' ',' | sed -e 's/,$//')
 rep2_samples=$(bcftools query -l $purged_VCF | grep "rep2" | tr '\n' ',' | sed -e 's/,$//')
 # Create separate VCF files for replicates 1 and 2
-bcftools view -s $rep1_samples $purged_VCF > 03_processing/pieters_VCF/F8_snp_matrix_purged_rep1.vcf.gz
-bcftools view -s $rep2_samples $purged_VCF > 03_processing/pieters_VCF/F8_snp_matrix_purged_rep2.vcf.gz
+bcftools view -s $rep1_samples $purged_VCF > 03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
+bcftools view -s $rep2_samples $purged_VCF > 03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
+
+
+# Tidy  up
+rm $old_header $new_header $samples_to_keep $vcf_with_all_samples $purged_VCF

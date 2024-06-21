@@ -10,6 +10,7 @@ dependencies:
   - cutadapt
   - fastqc
   - gemma
+  - h5py
   - multiqc
   - numpy
   - pandas
@@ -28,4 +29,3 @@ dependencies:
   - pip:
     - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
     - scikit-allel
-    - h5py

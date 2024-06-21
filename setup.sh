@@ -23,3 +23,6 @@ fi
 # The first three lines are also CLIP-specific
 # If you haven't already, install the environment with `conda env create -f environment.yml`
 source activate 1001crosses
+
+# Set an option to terminate any script when it encounters an error
+set -e
