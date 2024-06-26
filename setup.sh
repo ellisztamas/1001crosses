@@ -22,7 +22,7 @@ fi
 # Load conda environment
 # The first three lines are also CLIP-specific
 # If you haven't already, install the environment with `conda env create -f environment.yml`
-source activate 1001crosses
-
-# Set an option to terminate any script when it encounters an error
-set -e
+module load build-env/f2022
+module load anaconda3/2023.03
+source ~/.bashrc
+conda activate 1001crosses
