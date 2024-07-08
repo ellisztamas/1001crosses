@@ -42,7 +42,7 @@ i=$SLURM_ARRAY_TASK_ID
 # VCF files for parents and F8s
 F8_rep1_snp_matrix=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
 F8_rep2_snp_matrix=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
-parental_snp_matrix=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
+parental_snp_matrix=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
 # Array of paths to VCF files.
 # It is really important that these are in the same order as the phenotype files!
 vcf_array=($F8_rep1_snp_matrix $F8_rep2_snp_matrix $parental_snp_matrix)
@@ -54,35 +54,36 @@ in_phenotype=${gemma_input_files[$i]}
 
 # Additional arguments passed to GEMMA
 # Run all three kinds of statistical test using a minor-allele-frequency of 0.05
-gemma_args="-lmm 2 -maf 0.05"
+gemma_args="-maf 0.05"
 
 # === Output files ===
 
-# Output directory for GEMMA results and temporary files.
-with_K=05_results/07_gemma_seed_size/output/with_K
-mkdir -p $with_K
-without_K=05_results/07_gemma_seed_size/output/without_K
-mkdir -p $without_K
+# Output directory for results
+outdir=05_results/07_gemma_seed_size/output
+mkdir -p $outdir
 
 # === Script === 
 
 echo "\nVCF file: ${input_vcf}"
 echo "Phenotype file: ${in_phenotype}"
-echo "Output directory: ${outdir}\n\n"
-
-# GWAS without the kinship matrix
-02_library/run_GEMMA.sh \
-  --vcf $input_vcf \
-  --phenotypes $in_phenotype \
-  --outdir $without_K \
-  --gemma_args "${gemma_args}"
+echo "Output directory: ${outdir}"
 
 # GWAS with the kinship matrix
-02_library/run_GEMMA.sh \
+02_library/run_GEMMA_with_without_K.sh \
   --vcf $input_vcf \
   --phenotypes $in_phenotype \
-  --outdir $with_K \
-  --kinship \
+  --outdir $outdir \
   --gemma_args "${gemma_args}"
 
-date
+# Create some plots
+02_library/plot_gwas.py \
+  --input $outdir/with_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+  --outDir $outdir/with_K
+
+02_library/plot_gwas.py \
+  --input $outdir/no_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+  --outDir $outdir/no_K
+
+
+
+# date

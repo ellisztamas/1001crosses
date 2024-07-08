@@ -98,14 +98,22 @@ done
 # Terminate the script automatically if any part of it fails (returns a non-zero exit status)
 set -e
 
+# Paths for output
+tmp_dir=$outdir/tmp
+with_K=$outdir/with_K
+no_K=$outdir/no_K
+mkdir -p $tmp_dir
+mkdir -p $with_K
+mkdir -p $no_K
+
 # Pull out the basename of the phenotype file, without directories or the suffix
 # This will be used to name output files.
 pheno_name=$(basename $pheno_file)
 pheno_name=${pheno_name%.*}
-# Paths for output
-mkdir -p $outdir
-subsetted_VCF=$outdir/${pheno_name}.vcf
-plink_output=$outdir/$pheno_name
+
+# Define temporary files
+subsetted_VCF=$tmp_dir/${pheno_name}.vcf
+plink_output=$tmp_dir/$pheno_name
 relatedness_matrix=${pheno_name}_K_matrix
 
 # Format the data files required for running GEMMA
@@ -126,7 +134,7 @@ if [ $? -eq 0 ] ; then echo -n "done." ; fi
 echo "Calculating the relatedness matrix..."
 gemma -bfile $plink_output \
   -gk 1 \
-  -outdir $outdir \
+  -outdir $tmp_dir \
   -o $relatedness_matrix
 if [ $? -eq 0 ] ; then echo -n "Finished calculating the relatedness matrix." ; fi
 
@@ -134,16 +142,25 @@ if [ $? -eq 0 ] ; then echo -n "Finished calculating the relatedness matrix." ; 
 echo " Running GEMMA using the Plink and relatedness matrix..."
 gemma \
     -bfile $plink_output \
-    -outdir $outdir \
-    -o $pheno_name \
+    -k ${tmp_dir}/${pheno_name}_K_matrix.cXX.txt \
     -c $covariates \
+    -outdir $with_K -o $pheno_name \
     -lmm 2 \
     $gemma_args
-if [ $? -eq 0 ] ; then echo -n "done." ; fi
+
+echo " Running GEMMA without a relatedness matrix..."
+gemma \
+    -bfile $plink_output \
+    -outdir $no_K \
+    -o $pheno_name \
+    -c $covariates \
+    -lm 2 \
+    $gemma_args
 
 echo "Removing temporary files."
 rm $subsetted_VCF 
 rm ${plink_output}.bim
 rm ${plink_output}.bed
 rm ${plink_output}.fam
-rm $outdir/${relatedness_matrix}*txt
+rm ${plink_output}.log
+rm ${plink_output}_K_*txt
