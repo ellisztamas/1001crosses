@@ -64,7 +64,6 @@ seed_size_parents <- read_delim(
     genotype %in% parents_to_include
   )
 
-
 # Fit BLUPs
 seedsize_F9_blups <- ranef(
   lmer(Surface ~ (1 | genotype), data = seed_size_F9)

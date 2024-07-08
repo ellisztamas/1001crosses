@@ -56,6 +56,14 @@ raw_rosette_size <- raw_rosette_size %>%
     cohort = ifelse(grepl("rep2", genotype), "rep2", generation)
   )
 
+# Remove 5835, because Pieter thinks this was confused with 6180
+# Also 1435, which Pieter think was confused with 7383
+raw_rosette_size <- raw_rosette_size %>%
+  filter(
+    genotype != "5835",
+    genotype != "1435"
+    )
+
 # Fit BLUPs for rosette size
 # Notice the fixed effect of 'generation' which allows for different means for
 rosette_blups <- ranef(
@@ -94,13 +102,3 @@ rosette_blups %>%
     "03_processing/06_process_phenotypes/output/rosette_size_blups_parents.tsv",
     col_names = FALSE
   )
-
-# rosette_blups %>%
-#   mutate(
-#     genotype = ifelse(grepl("_rep", genotype), genotype, paste0(genotype, "_parent"))
-#   ) %>%
-#   separate(genotype, sep="_", into = c("cross", "rep")) %>%
-#   filter(rep != "parent") %>%
-#   pivot_wider(names_from = rep, values_from = `(Intercept)`) %>%
-#   ggplot(aes(x = rep1, y = rep2)) +
-#   geom_point()
