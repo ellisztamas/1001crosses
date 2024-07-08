@@ -14,8 +14,11 @@
 #' Outputs:
 #'    new_vcf_header.txt: list of new header names for each sample in vcf_header_to_change.txt
 #'    samples_to_keep.txt: list of samples that could be validated
+#'    parents_to_keep.txt: list of parents
 
 library(tidyverse)
+
+# === Inputs ===
 
 # Pieter's file giving samples including how he checked them. See:
 # crosses_continued/004.F8/002.mapping/002.scripts/001.gather_pheno_geno.Rmd
@@ -24,12 +27,17 @@ plate_info <- read_csv(
   show_col_types = FALSE
   )
 
+outdir <- '/scratch-cbe/users/thomas.ellis/crosses/04_pieters_VCF/01_reheader_VCF'
+dir.create(outdir, showWarnings = FALSE)
+
 # Sample names from Pieters VCF files to be changed
 old_header <- read_csv(
-  "03_processing/04_pieters_VCF/output/vcf_header_to_change.txt",
+  paste0(outdir, "/vcf_header_to_change.txt"),
   col_names = "filename",
   col_types = 'c'
 )
+
+# === Script ===
 
 # Reorder sample names match the old VCF header
 new_header <- old_header %>%
@@ -45,7 +53,7 @@ new_header <- old_header %>%
 
 new_header %>%
   write_delim(
-    "03_processing/04_pieters_VCF/output/new_vcf_header.txt", col_names = FALSE, delim = " "
+    paste0(outdir, "/new_vcf_header.txt"), col_names = FALSE, delim = " "
     )
 
 new_header %>%
@@ -54,5 +62,24 @@ new_header %>%
     !grepl("Aa1", Sample_name)
     ) %>%
   write_delim(
-    "03_processing/04_pieters_VCF/output/samples_to_keep.txt", col_names = FALSE, delim = " "
+    paste0(outdir, "/samples_to_keep.txt"), col_names = FALSE, delim = " "
   )
+
+# Text file giving parents of any F8 in either replicate cohort.
+new_header %>%
+  filter(
+    !grepl("xx_", Sample_name),
+    !grepl("Aa1", Sample_name)
+  ) %>%
+  mutate(
+    Sample_name = str_replace(Sample_name, "_rep[1,2]", "")
+  ) %>%
+  separate(Sample_name, into =c("p1", 'p2'), sep="x") %>%
+  pivot_longer(p1:p2) %>%
+  select(value) %>%
+  distinct() %>%
+  arrange(value) %>%
+  write_csv(
+    paste0(outdir, "/parents_to_keep.txt"), col_names = FALSE
+  )
+

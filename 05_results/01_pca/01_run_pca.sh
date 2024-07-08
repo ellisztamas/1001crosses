@@ -24,28 +24,32 @@ date
 
 # Load conda environment
 # If you haven't already, install the environment with `conda env create -f environment.yml`
-module load build-env/f2022
-module load anaconda3/2023.03
-source ~/.bashrc
-conda activate 1001crosses
+source setup.sh
+set -e
 
 i=$SLURM_ARRAY_TASK_ID
 
+# ===Input files ==== #
+
 # Path to a VCF files with dubious samples removed
-rep1=03_processing/04_pieters_VCF/F8_snp_matrix_purged_rep1.vcf.gz
-rep2=03_processing/04_pieters_VCF/F8_snp_matrix_purged_rep2.vcf.gz
+rep1=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
+rep2=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
 # VCF file for the parents
-parents=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
+parents=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
 # Make a Bash array of the three VCF files
 vcf_files=($rep1 $rep2 $parents)
 # File to use in this job
 infile=${vcf_files[$i]}
+
+# === Output files ===
 
 # Output directory
 outdir=05_results/01_pca/output
 mkdir -p $outdir
 # Suffix for output files
 file_suffix=$outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )
+
+# === Script ===
 
 # perform linkage pruning - i.e. identify prune sites
 # 
