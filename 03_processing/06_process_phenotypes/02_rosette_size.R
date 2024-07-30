@@ -23,7 +23,7 @@ library(lme4)
 source("03_processing/04_pieters_VCF/04_align_original_corrected_sample_names.R")
 
 # Import data on rosette size for each individual
-raw_rosette_size <- read_csv("01_data/05_phenotypes/rosette_size_parents_F9s.csv") %>%
+raw_rosette_size <- read_csv("01_data/05_phenotype_expt/rosette_size_parents_F9s.csv") %>%
   filter(
     cohort != 1, # There are no data on cohort 1
     size1 > 0 # Remove plants that never germinated.

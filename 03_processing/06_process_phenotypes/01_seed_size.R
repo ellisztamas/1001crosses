@@ -21,7 +21,7 @@ library(lme4)
 source("03_processing/04_pieters_VCF/04_align_original_corrected_sample_names.R")
 
 # Import size data for each seed separately
-seed_size_F9 <- read_delim("01_data/05_phenotypes/raw_data_seed_size_F9.csv", delim = ";")
+seed_size_F9 <- read_delim("01_data/05_phenotype_expt/raw_data_seed_size_F9.csv", delim = ";")
 # Tidy the plantID names up
 seed_size_F9 <- seed_size_F9 %>%
   rename(genotype = `Pick description`) %>%
@@ -55,7 +55,7 @@ parents_to_include <- seed_size_F9 %>%
 # Imprort seed size data for the 1001 genomes accessions, and subset to those
 # that are parents of the crosses
 seed_size_parents <- read_delim(
-  # "01_data/05_phenotypes/1001_2014_2017_2022_boxeed.csv",
+  # "01_data/06_external_seed_size/1001_2014_2017_2022_boxeed.csv",
   '/groups/nordborg/projects/seed_size/01_data/boxeed/1001_2014_2017_2022_boxeed.csv',
   delim = ";"
 ) %>%
