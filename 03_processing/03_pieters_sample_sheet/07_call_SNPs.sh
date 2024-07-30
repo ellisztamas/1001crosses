@@ -55,7 +55,7 @@ bcftools query -r Chr${chr} -f'%CHROM\t%POS\t%REF,%ALT\n' $training_vcf | \
 tabix -s1 -b2 -e2 $targets_file
 
 # Get genotype likelihoods, and use them to call SNPs
-bcftools mpileup --min-MQ 10 -a FORMAT/DP --skip-indels -f $genome -r $chr -b $bam_list -Ou | \
+bcftools mpileup --min-MQ 10 -a FORMAT/DP,FORMAT/AD --skip-indels -f $genome -r $chr -b $bam_list -Ou | \
 bcftools call -m --constrain alleles --targets-file $targets_file --variants-only -Oz --output $outfile
 tabix $outfile
 
