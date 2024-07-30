@@ -25,9 +25,11 @@
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
 #SBATCH --mem=10GB
-#SBATCH --qos=rapid
-#SBATCH --time=1:00:00
+#SBATCH --qos=short
+#SBATCH --time=8:00:00
 #SBATCH --array=0-428
+
+# === Dependencies === #
 
 # Terminate the script automatically if any part of it fails (returns a non-zero exit status)
 set -e
@@ -38,8 +40,8 @@ source setup.sh
 ml build-env/f2021
 ml gatk/4.2.6.1-gcccore-10.2.0-java-13
 
+# === Input files === #
 
-# Input
 # Reference genome
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
 # VCF fie giving known sites
@@ -49,16 +51,29 @@ infiles=($workdir/04_aligned_bam/*.dedup.read_groups.bam)
 infile=${infiles[$SLURM_ARRAY_TASK_ID]}
 infile_bs=$(basename $infile) # file name to save for later
 
-# Output
+# === Output files ===
+
 # Directory to hold results
 outdir=$workdir/05_base_recalibration
 mkdir -p $outdir
+
+# Directory to copy the results
+rename=$workdir/05_rename_bams
+mkdir -p $rename
+
 # Filenames for the output files
 recal_table1=$outdir/${infile_bs/.bam/_1.recal_table}
 recal_table2=$outdir/${infile_bs/.bam/_2.recal_table}
+
 recal_bam=$outdir/${infile_bs/.bam/.recal.bam}
+recal_bai=$outdir/${infile_bs/.bam/.recal.bai}
+
 analyse_covariates=$outdir/${infile_bs/.bam/.pdf}
 
+symlink_dir=$workdir/06_rename_bams
+mkdir -p $symlink_dir
+
+# === Script === #
 
 gatk BaseRecalibrator \
    -I $infile \
@@ -86,3 +101,8 @@ if [ $? -eq 0 ] ; then echo "Second base recalibration successful." ; fi
 #     -after $recal_table2 \
 #     -plots $analyse_covariates
 # if [ $? - eq 0 ] ; then echo "AnalyzeCovariates completed successfuly." ; fi
+
+# samtools index $recal_bam
+
+cp $recal_bam $rename
+cp $recal_bai $rename

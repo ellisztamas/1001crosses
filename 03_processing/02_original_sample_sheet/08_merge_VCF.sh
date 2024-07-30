@@ -19,17 +19,19 @@
 # Set working directory
 source setup.sh
 
-# Input data
+# === Input data === #
+
 # Directory containing SNP calls for each chromosome separately.
 indir=$workdir/07_snp_calls
 # VCF files for each chromosome separately
-VCF_chr1=$indir/F8_snp_matrix_chr1.vcf.gz
-VCF_chr2=$indir/F8_snp_matrix_chr2.vcf.gz
-VCF_chr3=$indir/F8_snp_matrix_chr3.vcf.gz
-VCF_chr4=$indir/F8_snp_matrix_chr4.vcf.gz
-VCF_chr5=$indir/F8_snp_matrix_chr5.vcf.gz
+VCF_chr1=$indir/F8_snp_matrix_Chr1.vcf.gz
+VCF_chr2=$indir/F8_snp_matrix_Chr2.vcf.gz
+VCF_chr3=$indir/F8_snp_matrix_Chr3.vcf.gz
+VCF_chr4=$indir/F8_snp_matrix_Chr4.vcf.gz
+VCF_chr5=$indir/F8_snp_matrix_Chr5.vcf.gz
 
-# Define outputs
+# === Define outputs === #
+
 # Directory for the output files
 outdir=$workdir/08_merge_VCF
 mkdir -p $outdir
@@ -38,6 +40,8 @@ vcf_with_full_paths=$outdir/F8_snp_matrix_full_paths.vcf.gz
 vcf_with_sample_names=$outdir/F8_snp_matrix.vcf.gz
 # Directory to stage out the resulting SNP matrix
 projdir=03_processing/02_original_sample_sheet/output
+
+# === Script === #
 
 # Concatenate VCF files
 rm $vcf_with_full_paths

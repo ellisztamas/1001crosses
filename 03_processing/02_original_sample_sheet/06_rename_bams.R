@@ -12,7 +12,7 @@
 library(tidyverse)
 
 # Location of aligned bams
-bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/05_base_recalibration/'
+bam_dir <- '/scratch-cbe/users/thomas.ellis/crosses/06_rename_bams/'
 bam_files <- list.files(path = bam_dir, pattern = '*.bam$')
 # Tible giving directory, NGS sample ID, and barcode sequence.
 bam_info <- tibble(
@@ -30,6 +30,7 @@ plate_info <- read_csv("01_data/02_F8_unaligned_bams/sequencing_plates_original.
 plate_info <- plate_info %>%
   rename_with(~ gsub(' ', '_', .x)) %>% # Change spaces to underscores in column names
   mutate(
+    id = paste0(plate, "_", row, col),
     name = gsub(' ', '_', name), # Change spaces to underscores in the variable `name`
     barcode = paste0(barcode2, barcode1),
     NGS_sample_ID = as.character(NGS_sample_ID)
@@ -48,12 +49,12 @@ plate_info <- plate_info %>%
 # Rename BAM files to use the sample name.
 file.rename(
   from = paste0(plate_info$directory, plate_info$filename),
-  to   = paste0(plate_info$directory, plate_info$name, ".bam")
+  to   = paste0(plate_info$directory, plate_info$id, ".bam")
 )
 file.rename(
   from = paste0(plate_info$directory,
                 gsub(pattern = "\\.bam$", ".bai", plate_info$filename)
                 ),
-  to   = paste0(plate_info$directory, plate_info$name, ".bai")
+  to   = paste0(plate_info$directory, plate_info$id, ".bai")
 )
 
