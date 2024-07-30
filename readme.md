@@ -16,6 +16,8 @@ structure in *Arabidopsis thaliana*.
 
 ## Data
 
+Additional readme files in `01_data` give additional details as necessary.
+
 ### Design
 
 Random pairs of 217 accessions from Sweden (that show strong population
@@ -42,15 +44,34 @@ See NGS master list plates 2022-007 and 2022-008.
 
 ### Phenotypes
 
-#### Flowering time
+#### Phenotyping experiment at 12°C
+
+Tom Ellis set up a phenotyping experiment to collect data on rosette size (a 
+proxy for growth), flowering time and seed size in the parents and F9s.
+
+* 427 F9 families
+* 219 parental lines
+* Each line is replicated in three cohorts, with germination staggered by a few
+weeks between cohorts.
+* The experiment was meant to be at 10°C, but we realised the temperature sensor
+in growth room 13 overreads, so we kept it at 12°C.
+* We measured rosette size using the app easyLeafArea.
+* Each pot label had a QR code encoding the position and ID of the plant. When
+plants flowered I scanned them with an app that also recorded the date. Almudena
+Morales also recorded some dates using a separate app.
+* After flowering, plants were moved to greenhouse chamber 1 for seeds to mature.
+
+Full details are documented on eLabJournal:
+https://vbc.elabjournal.com/members/experiments/browser/#view=experiment&nodeID=253766&page=0&userID=0&status=0&column=created&order=DESC&search=
+
+#### Flowering time (deprecated)
 
 Joanna Gunis measured flowering time in the F8s.
 
-Tom Ellis repeated this so that parents and offspring were grown in the same 
-environment. Tom grew three replicates of all parents offspring (total = 637) in
-Spring 2024 at 10°C.
+We will probably not use these data because parents and F8s were not grown in the
+same environment, there is on replication, and randomisation is not ideal.
 
-#### Seed size
+#### External seed size data
 
 Tal Dahan sent seeds for the F8s and the parents (from the 2017 seed stock) to 
 be measured by Boxeed in the Czech Republic. Since these cohorts are from
@@ -77,23 +98,19 @@ necessary. This can be done easily and only once by modifying `setup.sh`.
 
 ### Dependencies
 
-#### Conda environment
+#### Mamba environment
 
-A conda environment via the file `environment.yml` is provided with the necessary dependencies for running the scripts.
-Install the environment with 
+An environment file `environment.yml` is provided to handle (most) dependencies for running the scripts.
+This does not include packages for R, as these do not seem to play well with conda/mamba.
+
+I have used `micromamba` to manage dependencies, but conda would also work.
+Assuming you have micromamba installed, install the environment with 
 ```
-conda env create -f environment.yml
+micromamba env create -f environment.yml
 ```
 
-Near the start of bash scripts you will see a line that says something like
-```
-module load build-env/f2022
-module load anaconda3/2023.03
-source ~/.bashrc
-conda activate 1001crosses
-```
-The first three lines of this load conda on the CLIP system.
-Adjust as necessary for your machine.
+In the scripts in this repo this environment is loaded by `source setup.sh` 
+which you will see at the top of most scripts.
 
 #### R
 
