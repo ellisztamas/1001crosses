@@ -10,3 +10,5 @@ Things to note:
 - There are two sample sheets relating sample names to the barcodes used:
     - `sequencing_plates_original.csv` gives the names in the original sample sheet on the NGS master list
     - `sequencing_plates_pieter.csv` gives Pieter's corrections after he ran SNPmatch on them.
+- In plate 5, Pieter thinks G6 and H6 are the genotypes that were meant to be in
+    B6 and A6 respectively. I added these manually to sequencing_plates_original.csv

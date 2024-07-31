@@ -52,8 +52,8 @@ if [ $? -eq 0 ] ; then echo "Concatenating VCF files completed successfully"; fi
 
 # Rename the samples to remove absolute paths and .bam suffixes
 # Create text files giving the old and new names
-bcftools query -l $vcf_with_full_paths > $outdir/header_names.txt
-xargs -rd '\n' -a $outdir/header_names.txt basename -a --suffix=.bam > $outdir/new_header_names.txt
+bcftools query -l $vcf_with_full_paths > $outdir/header_names.txt # Old names
+python 03_processing/02_original_sample_sheet/07_rename_samples.py # New names
 # Swap the names
 rm $vcf_with_sample_names
 bcftools reheader \
