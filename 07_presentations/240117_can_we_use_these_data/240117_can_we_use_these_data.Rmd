@@ -1,0 +1,489 @@
+---
+title: "Can we use the 1001 crosses?"
+author: "Tom Ellis"
+date: "2024-01-18"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    css: ../gmi.css
+    incremental: false  
+---
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+<script>
+$(document).ready(function() {
+$('slide:not(.title-slide, .backdrop, .segue)').append('<footer></footer>');    
+$('footer').attr('label', 'thomas.ellis@gmi.oeaw.ac.at ellisztamas.github.io');
+
+})
+</script>
+
+<style>
+footer:after {
+font-size: 12pt;
+content: attr(label);
+position: absolute;
+bottom: 1px;
+right: 60px;
+line-height: 1.9;
+display: block;
+color: #007243
+}
+</style>
+
+```{r setup, include=FALSE}
+
+options(bitmapType='cairo')
+options(dplyr.summarise.inform = FALSE)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache=TRUE, cache.lazy=TRUE,
+  fig.align='center',
+  warning = F,
+  dev=c('png'),
+  message=FALSE
+)
+
+library("tidyverse")
+library('ggpubr')
+library('knitr')
+
+theme_set(theme_bw())
+
+# Path to where external figures are kept
+figures_path <- paste0(
+  getwd(),
+  "07_presentations/24017_can_we_use_these_data/"
+)
+
+
+```
+
+```{r import-summary-stats}
+# Import data summarising Fernando's SNP matrix
+
+# Directory with summary tables.
+summary_stats_initial <- "03_processing/01_parental_SNP_matrix/summary_stats_intitial"
+
+# Variant quality
+# Ranges from 30 to 3e6
+var_qual <- read_delim(
+  paste0(summary_stats_initial, "/data_inspection.lqual"),
+  delim = "\t",
+  col_names = c("chr", "pos", "qual"), skip = 1)
+
+# Variant depth ranges from ~0 to ~68, with a peak at 19
+var_depth <- read_delim(
+  paste0(summary_stats_initial, "/data_inspection.ldepth.mean"),
+  delim = "\t",
+  col_names = c("chr", "pos", "mean_depth", "var_depth"), skip = 1)
+
+# Most loci have only a few percent missing data, with a long tail.
+# It should be fine to filter at 10%
+var_miss <- read_delim(
+  paste0(summary_stats_initial, "/data_inspection.lmiss"),
+  delim = "\t",
+  col_names = c("chr", "pos", "nchr", "nfiltered", "nmiss", "fmiss"), skip = 1)
+
+# Allele frequencies
+# These are strongly skewed left, with a mean of 3%. That is weird to be honest.
+# They are likley to be singletons.
+var_freq <- read_delim(
+  paste0(summary_stats_initial, "/data_inspection.frq"),
+  delim = "\t",
+  col_names = c("chr", "pos", "nalleles", "nchr", "a1", "a2"), skip = 1)
+var_freq$maf <- var_freq %>%
+  select(a1, a2) %>%
+  apply(1, function(z) min(z))
+
+# Heterozygosity per variant
+# Mostly close to zero, with a long tail up to 1.
+var_het <- read_delim(
+  paste0(summary_stats_initial, "/heterozygosity_per_site.tsv"),
+  delim = "\t")
+```
+
+```{r import-snpmatch-results}
+# Import the output of 02_library/CSV_from_SNPmatch.py for each sample, and merge
+snpmatch_files <- Sys.glob("03_processing/03_pieters_sample_sheet/output/snpmatch/*.csv")
+snpmatch_files <- snpmatch_files[grep("_rep[12].csv", snpmatch_files)] # ignore ancestry files.
+sm_results <- lapply(snpmatch_files, read_csv, col_types = cols(.default = "c")) %>%
+  do.call(what = 'rbind')
+# Create a column stating whether the observed parents match the expected parents
+sm_results <- sm_results %>%
+  select(FOL, ExpectedParents, ObservedParent1, ObservedParent2, HomozygousWindow) %>%
+  separate(FOL, into=c("cross", 'generation', 'rep')) %>%
+  group_by(cross) %>%
+  separate(
+    ExpectedParents,
+    sep = 'x', into = c('ExpectedParent1', 'ExpectedParent2')
+    ) %>% 
+  mutate(
+    top_match = ifelse(
+      (ExpectedParent1 == ObservedParent1) & (ExpectedParent2 == ObservedParent2) |
+        (ExpectedParent1 == ObservedParent2) & (ExpectedParent2 == ObservedParent1),
+      "yes", "no"
+    )
+  )
+```
+
+## Can we use the 1001 crosses?
+
+- **Last meeting**: March, August, or else never
+- **Elevator pitch**: yeah, probably
+- **Goal**: Feedback on bioinformatic and validation pipelines
+
+# The zoo of 1001G datasets
+
+## 1001 SNP matrices
+
+- `imputed_snps_binary.hdf5`
+  - 10 million SNPs
+  - 1001 genomes website
+
+## 1001 SNP matrices
+
+- `imputed_snps_binary.hdf5`
+  - 10 million SNPs
+  - 1001 genomes website
+- `all_chromosomes_binary.hdf5`:
+  - 16 million SNPs
+  - What PyGWAS uses
+  - Also imputed
+
+## 1001 SNP matrices
+
+- `imputed_snps_binary.hdf5`
+  - 10 million SNPs
+  - 1001 genomes website
+- `all_chromosomes_binary.hdf5`:
+  - 16 million SNPs
+  - What PyGWAS uses
+  - Also imputed
+- **'Fernando's SNP matrix'**:
+  - Recall SNPs using updated methods (GATK)
+  - 7 million SNPs, probably
+  - 1163 accessions
+  - Includes heterozygous sites
+
+## Fernando's SNPs
+
+> - Trim adpators and ends
+> - Aligned reads with `bwa mem`
+> - Remove duplicated reads with `picard`
+> - Local realignment around indels based on 2016 alignment
+> - Base-quality recalibration based on 2016 alignment
+> - SNP calls with `GATK/HapotypeCaller`
+> - Filter using variant quality-score calibration
+    - Trained on SNPs from RegMap panel?
+    - Many specific filters
+
+## We should... {.build}
+
+> - know what data we are working with!
+> - read the wiki
+> - probably use Fernando's matrix
+> - stop copying data files!
+> - use the `common_data` folder instead
+
+# Can we use the 1001 crosses tho?
+
+## 1001 crosses design
+
+- GWAS panel shows long-range LD
+- Individual crosses change allele frequencies
+- One round of random mating between 200 accessions
+
+## Broad goals
+
+- Create a community resource
+  - Good genotype data
+  - Good phenotype data
+
+## Broad goals
+
+- Create a community resource
+  - Good genotype data
+  - Good phenotype data
+- Biology:
+  - What does a K matrix do?
+  - Track recombination breakpoints
+  - Epistasis
+
+## What Pieter did
+
+- Called genotypes for F8s using Fernando's SNPs
+
+## What Pieter did
+
+- Called genotypes for F8s using Fernando's SNPs
+- Validation with SNPmatch, e.g.:
+  - Similar names (1002 vs 10024)
+  - All crosses with parents A appear as parent B
+  - Semimanual
+
+## What Pieter did
+
+- Called genotypes for F8s using Fernando's SNPs
+- Validation with SNPmatch, e.g.:
+  - Similar names (1002 vs 10024)
+  - All crosses with parents A appear as parent B
+  - Semimanual
+- Basic flowering-time results
+
+## I rePietered this
+
+- Issues:
+  - Lots of accessions didn't match 
+  - LD looks whacky
+  - We need to be transparent
+  - Parents and offspring were tested separately
+  
+## I rePietered this
+
+- Issues:
+  - Lots of accessions didn't match 
+  - LD looks whacky
+  - We need to be transparent
+  - Parents and offspring were tested separately
+- Immediate goals:
+  - Determine whether the data are usable
+  - Transparent validation pipeline
+  - Repeat phenotyping
+
+# Can we use these data?
+
+## Sources of error
+
+- Sample mixups
+  - Crossed the wrong thing
+  - Mix up lines
+- Original snp matrix
+- Downstream bioinformatics
+
+## Pipeline
+
+- Trim adaptor sequences with `cutadapt`
+- Align to TAIR10 with `bwa mem`
+- Remove PCR duplicates with `picard`
+- SNP calls:
+  - Variant sites from Fernando's SNP matrix
+  - `bcftools mpileup` for genotype likelihoods
+  - `bcftools call` for SNP calls
+
+## SNP matrix inspection
+
+```{r fernando-snps-1, fig.width=10}
+
+ggarrange(
+  var_qual %>%
+    ggplot(aes(qual)) +
+    geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3) +
+    labs(
+      x = "Quality",
+      y = "N. loci"
+    ) + 
+    theme_light(),
+  
+  var_depth %>%
+    ggplot(aes(mean_depth)) +
+    geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3) +
+    labs(
+      x = "Sequence depth",
+      y = "N. loci"
+    ) + 
+    geom_vline(xintercept=10, linetype='dashed') +
+    geom_vline(xintercept=40, linetype='dashed') +
+    theme_light(),
+  
+  var_miss %>%
+    ggplot(aes(fmiss)) +
+    geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3) +
+    labs(
+      x = "Missing data",
+      y = "N. loci"
+    ) + 
+    geom_vline(xintercept=0.1, linetype='dashed') +
+    theme_light(),
+  
+  nrow=1, ncol = 3
+  
+)
+```
+
+- Sequence quality, depth and missingness look fine
+
+## Many low frequency SNPs
+
+```{r fernando-snps-2, fig.width=10}
+
+ggarrange(
+  var_freq %>%
+    ggplot(aes(maf)) +
+    geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3) +
+    labs(
+      x="Minor allele frequency",
+      y = "N. loci"
+    ) +
+    theme_light(),
+  
+  var_het %>%
+    ggplot(aes(het_rate)) +
+    geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3) +
+    labs(
+      x="Heterozygosity",
+      y = "N. loci"
+    ) +
+    theme_light(),
+  
+  ncol=2
+)
+
+```
+
+- Rare SNPs aren't the heterozygous SNPs
+- Filter MAC>20, heterozyosity>5% 
+
+## SNPmatch+confusion
+
+- Software to verify accessions
+- Identify homozygous regions
+- Compare to database of candidate parents
+- ????
+- Profit
+
+## SNPmatch: first attempt
+
+```{r snpmatch-1}
+sm_results %>% 
+  ggplot(aes(x=top_match)) +
+  geom_bar() +
+  labs(
+    x = "Expected parents are top match"
+  ) +
+  facet_grid(~rep)
+
+```
+
+- Labels are after Pieter checked them, so they ought to match
+
+## SNPmatch: second attempt
+
+```{r snpmatch-2}
+
+#' List of vectors, each containing the IDs of compatible parents for each sample
+list_of_matches <- sm_results$HomozygousWindow %>% str_split(",")
+# Add columns indicating whether each expected parent is among the compatible candidates
+sm_results$found_parent1 <- NA
+sm_results$found_parent2 <- NA
+for(i in 1:nrow(sm_results)){
+  sm_results$found_parent1[i] <- sm_results$ExpectedParent1[i] %in% list_of_matches[[i]]
+  sm_results$found_parent2[i] <- sm_results$ExpectedParent2[i] %in% list_of_matches[[i]]
+}
+sm_results$found_both_parents <- sm_results$found_parent1 & sm_results$found_parent2
+
+sm_results %>% 
+  ggplot(aes(x=found_both_parents)) +
+  geom_bar() +
+  labs(
+    x = "Expected parents are compatible"
+  ) +
+  facet_grid(~rep)
+```
+
+- SNPmatch has a column listing multiple compatible parents (probably)
+
+## Visual checks
+
+- F8s should be mostly homozygous
+- Genome should look like a mosaic of the two parents
+- Plot pi in windows of 1000 SNPs
+
+## Plots look messy
+
+```{r pi-across-genome, fig.width=10}
+trio_files <- Sys.glob("03_processing/05_quality_control/output/data_to_check_trios/*_check_trio.csv")
+
+i <- grep("6243x6180_F8_rep1", trio_files)
+# i <- 1
+trio <- read_csv(trio_files[i])
+
+trio %>%
+    pivot_longer(progeny_vs_p1:p1_vs_p2) %>%
+    ggplot(aes(x = start, y = value, colour = name)) +
+    geom_line() +
+    labs(
+      x = "Position",
+      y = "pi"
+      # title = basename(trio_files[i])
+    ) +
+    facet_grid(rows=vars(chr))
+
+```
+
+## Why could this be a mess?
+
+> - It's a weird sample
+> - I've mixed up names
+> - I've coded it wrong
+> - Rare SNPs mess things up
+> - Bioinformatics don't match
+
+## Why could this be a mess?
+
+- It's a weird sample
+- I've mixed up names
+- I've coded it wrong
+- **Rare SNPs mess things up**
+- **Bioinformatics don't match**
+- Anything else?
+
+## Fernando's SNPs, again
+
+- Trim adpators and ends
+- Aligned reads with `bwa mem`
+- Remove duplicated reads with `picard`
+- Local realignment around indels based on 2016 alignment
+- Base-quality recalibration based on 2016 alignment
+- SNP calls with `GATK/HapotypeCaller`
+- Filter using variant quality-score calibration
+    - Trained on SNPs from RegMap panel?
+    - Many specific filters
+    
+## So can we use these data?
+
+- Probably:
+  - Most match parents based on sparse SNPs
+  - A lot of SNP calls don't match
+
+## So can we use these data?
+
+- Probably:
+  - Most match parents based on sparse SNPs
+  - A lot of SNP calls don't match
+- Things to do:
+  - Check the SNP calls
+  - Transparent protocol for genotype checking
+    
+## Validation protocol
+
+- Work out what 'compatible' means in SNPmatch
+- Check mismatched parents against the list of mix-ups
+- Check whether all offspring of accession A are assigned to B
+- Confirm with F9s?
+    
+## Phenotyping
+
+- Flowering time:
+  - Parents and offspring measured separately
+  
+## Phenotyping
+
+- Flowering time:
+  - Parents and offspring measured separately
+- PhenoPlant
+  - F9s
+  - More genotyping
+- Seed size
