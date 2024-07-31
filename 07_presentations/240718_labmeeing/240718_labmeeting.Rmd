@@ -1,0 +1,424 @@
+---
+title: "1001 crosses"
+subtitle: "The horror! The horror!"
+author: "Tom Ellis"
+date: "Nordborg group, Gregor Mendel Institute"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    css: ../gmi.css
+    incremental: false  
+---
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+<script>
+$(document).ready(function() {
+$('slide:not(.title-slide, .backdrop, .segue)').append('<footer></footer>');    
+$('footer').attr('label', 'thomas.ellis@gmi.oeaw.ac.at ellisztamas.github.io');
+
+})
+</script>
+
+<style>
+footer:after {
+font-size: 12pt;
+content: attr(label);
+position: absolute;
+bottom: 1px;
+right: 60px;
+line-height: 1.9;
+display: block;
+color: #007243
+}
+</style>
+
+```{r setup, include=FALSE}
+
+options(bitmapType='cairo')
+options(dplyr.summarise.inform = FALSE)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache=TRUE, cache.lazy=TRUE,
+  fig.align='center',
+  warning = F,
+  dev=c('png'),
+  message=FALSE
+)
+
+library("tidyverse")
+library('ggpubr')
+library('knitr')
+
+theme_set(theme_bw())
+
+
+```
+
+```{r}
+# # Information about the SNPs used, including allele frequencies and correlation with
+# # population structure.
+# snps_to_simulate <- read_delim(
+#   "05_results/09_gwas_single_loci/output/snps_to_simulate.tsv", delim = '\t'
+# ) %>% 
+#   rename(chr= chrom)
+
+
+# Simulation results without a background effect
+case_control <- read_csv(
+  "05_results/10_sim_case_controls/output/simulation_summary.csv"
+) %>% 
+  mutate(
+    background = "No",
+    log10_p = -log10(p_target_SNP),
+    liability  = str_replace(liability, "p", ""),
+    true_pos = p_target_SNP < (0.05 / 865569),
+    false_pos = n_false_pos > 0,
+    includes_K = ifelse(includes_K == "with_K", "Yes", "No"),
+    cohort = case_match(
+      cohort,
+      'parents' ~ 'Parents',
+      'rep1' ~ "F8 replicate 1",
+      "rep2" ~ "F8 replicate 2"
+    ),
+    cohort = fct_relevel(as.factor(cohort), "Parents")
+  )
+
+# Simulation results with a background effect
+sim_background <- read_csv(
+  "05_results/11_sim_background/output/simulation_summary.csv"
+) %>% 
+  mutate(
+    background = "Yes",
+    log10_p = -log10(p_target_SNP),
+    liability  = str_replace(liability, "p", ""),
+    true_pos = p_target_SNP < (0.05 / 865569),
+    false_pos = n_false_pos > 0,
+    includes_K = ifelse(includes_K == "with_K", "Yes", "No"),
+    cohort = case_match(
+      cohort,
+      'parents' ~ 'Parents',
+      'rep1' ~ "F8 replicate 1",
+      "rep2" ~ "F8 replicate 2"
+    ),
+    cohort = fct_relevel(as.factor(cohort), "Parents")
+  )
+# Simulation results with a correlated background effect
+sim_corr <- read_csv(
+  "05_results/12_correlated_background/output/simulation_summary.csv"
+) %>% 
+  mutate(
+    background = "Correlated",
+    log10_p = -log10(p_target_SNP),
+    liability  = str_replace(liability, "p", ""),
+    true_pos = p_target_SNP < (0.05 / 865569),
+    false_pos = n_false_pos > 0,
+    includes_K = ifelse(includes_K == "with_K", "Yes", "No"),
+    cohort = case_match(
+      cohort,
+      'parents' ~ 'Parents',
+      'rep1' ~ "F8 replicate 1",
+      "rep2" ~ "F8 replicate 2"
+    ),
+    cohort = fct_relevel(as.factor(cohort), "Parents")
+  )
+
+```
+
+## 1001 crosses dataset
+
+- *A. thaliana* in Sweden is structured AF
+  - GWAS is hard
+- One round of random mating between 215 accessions
+  - 9 generations of selfing
+  - 2 replicates
+- Sequenced the F8s
+- Phenotype F9s
+
+## Phenotyping experiment
+
+- 429 F9s + 215 parents
+- 3 replicates of each = 1918
+- Traits:
+  - Rosette size
+  - Flowering time
+  - Seed size
+  
+## Structure causes false positives
+
+- Population structure -> genome-wide linkage disequilibrium
+- Loci are associated with a trait and each other
+- Associations are inflated
+
+## Correct for relatedness
+
+- Population structure -> genome-wide linkage disequilibrium
+- Loci are associated with a trait and each other
+- Associations are inflated
+
+- *If* there are many loci of small effect:
+  - difference in relatedness predicts difference in phenotype
+  - Account for this with a matrix of relatedness
+
+# Does the kinship correction work?
+
+## Simulate causal SNPs
+
+- Choose a causal SNP from the parents
+- Simulate a binary phenotype
+- GWAS
+- ????
+- Profit
+
+## Simulate causal SNPs
+
+- Choose a causal SNP from the parents
+- Simulate a binary phenotype
+- GWAS
+- ????
+- Profit
+
+## Weaker associations at causal SNPs
+
+```{r case-control}
+
+# P-values for the causal SNP with and without the K correction, when there's no background effect.
+
+plot_tp_no_backgroun <- case_control %>%
+  ggplot(aes(x = liability, fill=includes_K, y=log10_p)) +
+  geom_boxplot() +
+  labs(
+    y = "-log10 p for causal SNP",
+    x = "True allelic effect (liability)",
+    fill = "Kinship correction"
+  ) +
+  # scale_fill_viridis_d() +
+  facet_grid(~cohort)
+
+plot_falsepos_nobackground <- case_control %>%
+  ggplot(aes(x = liability, fill=includes_K, y=gif)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Kinship correction"
+  ) +
+  facet_grid(~cohort)
+
+ggarrange(
+  plot_tp_no_backgroun, NULL,
+  nrow=2, common.legend=TRUE, legend = "bottom"
+)
+# There's a reduction in p-values for the true SNP, but a reduction in inflation as well
+# The inflation is caused only by linkage.
+```
+
+- Prediction: K correction reduces association at causal SNP
+
+## Reduced inflation at non-causal SNPs
+
+```{r}
+ggarrange(
+  plot_tp_no_backgroun, plot_falsepos_nobackground,
+  nrow=2, common.legend=TRUE, legend = "bottom"
+)
+```
+
+- Prediction: K correction reduces inflation across non-causal SNPs.
+
+## Summary
+
+- When there's only one causal SNP:
+  - Trade-off between true/false associations
+  - Crossing seems to have reduced structure
+
+## Genetic background
+
+- Choose a large-effect causal SNP from the parents
+- Small effect of 10,000 genome-wide SNPs
+
+## Genetic background
+
+- Choose a large-effect causal SNP from the parents
+- Small effect of 10,000 genome-wide SNPs
+- Simulate a binary phenotype
+- GWAS
+- ????
+
+## Background effect weakens true associations
+
+```{r}
+
+sims <- rbind(case_control, sim_background) %>%
+  filter(includes_K == "Yes") %>%
+  mutate(
+    background = fct_relevel(as.factor(background), "No", "Yes", "Correlated")
+  )
+
+p1 <- sims %>%
+  filter(cohort == "Parents") %>%
+  ggplot(aes(x = liability, y = log10_p, fill = background)) +
+  geom_boxplot()+
+  labs(
+    y = "-log10 p for causal SNP",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  )
+
+ggarrange(p1, NULL, common.legend=TRUE, legend='bottom')
+
+```
+
+- Prediction: correcting for the background over-corrects at the causal SNP
+
+## Background effect causes inflation
+
+```{r}
+
+p2 <- sims %>%
+  filter(cohort == "Parents") %>%
+  ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "-log10 p for causal SNP",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  )
+
+ggarrange(p1, p2, common.legend=TRUE, legend='bottom')
+
+
+```
+
+- For intermediate effect sizes
+
+<!-- ## Crossing doesn't fix this -->
+
+<!-- ```{r} -->
+<!-- plot3 <- sims %>% -->
+<!--   ggplot(aes(x = liability, y = log10_p, fill = background)) + -->
+<!--   geom_boxplot()+ -->
+<!--   labs( -->
+<!--     y = "-log10 p for causal SNP", -->
+<!--     x = "True allelic effect (liability)", -->
+<!--     fill = "Background effect" -->
+<!--   ) + -->
+<!--   facet_grid(~ cohort) -->
+
+<!-- plot4<- sims %>% -->
+<!--   ggplot(aes(x = liability, y = gif, fill = background)) + -->
+<!--   geom_boxplot() + -->
+<!--   labs( -->
+<!--     y = "Genomic inflation factor", -->
+<!--     x = "True allelic effect (liability)", -->
+<!--     fill = "Background effect" -->
+<!--   ) + -->
+<!--   facet_grid(~ cohort) -->
+
+<!-- ggarrange( -->
+<!--   plot3, plot4, -->
+<!--   nrow = 2, common.legend = TRUE, legend = 'bottom' -->
+<!-- ) -->
+
+<!-- ``` -->
+
+## Genetic background, correlated with structure
+
+- Choose a large-effect causal SNP from the parents
+- Small effect of 10,000 genome-wide SNPs
+  - Effects correlated with PC1 of population structure
+- Simulate a binary phenotype
+- GWAS
+- ????
+
+## Correlated background makes GWAS harder
+
+```{r}
+
+sims <- rbind(case_control, sim_background, sim_corr) %>%
+  filter(includes_K == "Yes") %>%
+  mutate(
+    background = fct_relevel(as.factor(background), "No", "Yes", "Correlated")
+  )
+
+plot5 <-sims %>%
+  ggplot(aes(x = liability, y = log10_p, fill = background)) +
+  geom_boxplot()+
+  labs(
+    y = "-log10 p for causal SNP",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  ) +
+  facet_grid(~ cohort)
+
+plot6<- sims %>% ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  ) +
+  facet_grid(~ cohort)
+
+ggarrange(
+  plot5, plot6,
+  nrow = 2, common.legend = TRUE, legend = 'bottom'
+)
+
+```
+
+- Effect sizes are weaker
+- Inflation higher
+
+## Reduced inflation after crossing
+
+```{r}
+
+plot7 <-sims %>%
+  mutate(
+    background = case_match(background,
+      "No" ~ "SNP only",
+      "Yes" ~ "SNP+background",
+      "Correlated" ~ "SNP + correlated background"
+    )
+  ) %>% 
+  ggplot(aes(x = liability, y = log10_p, fill = cohort)) +
+  geom_boxplot()+
+  labs(
+    y = "-log10 p for causal SNP",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  ) +
+  facet_grid(~ background)
+
+plot8<- sims %>% 
+    mutate(
+    background = case_match(background,
+      "No" ~ "SNP only",
+      "Yes" ~ "SNP+background",
+      "Correlated" ~ "SNP + correlated background"
+    )
+  ) %>% 
+  ggplot(aes(x = liability, y = gif, fill = cohort)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  ) +
+  facet_grid(~ background)
+
+ggarrange(
+  plot7, plot8,
+  nrow = 2, common.legend = TRUE, legend = 'bottom'
+)
+
+```
+
+- F8s look slightly better than the parents (?)
+
+## Summary
+
+- One round of random mating to reduce structure
+- Kinship correction kinda works

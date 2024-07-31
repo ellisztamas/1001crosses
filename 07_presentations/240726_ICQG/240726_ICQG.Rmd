@@ -1,0 +1,852 @@
+---
+title: "GWAS before and after one round of random mating"
+subtitle: "The many circles of GWAS-confounding hell"
+author: "Tom Ellis"
+date: "Nordborg group, Gregor Mendel Institute"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    css: ../gmi.css
+    incremental: false  
+---
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+<script>
+$(document).ready(function() {
+$('slide:not(.title-slide, .backdrop, .segue)').append('<footer></footer>');    
+$('footer').attr('label', 'ellisztamas.github.io');
+
+})
+</script>
+
+<style>
+footer:after {
+font-size: 12pt;
+content: attr(label);
+position: absolute;
+bottom: 1px;
+right: 60px;
+line-height: 1.9;
+display: block;
+color: #007243
+}
+</style>
+
+```{r setup, include=FALSE}
+
+options(bitmapType='cairo')
+options(dplyr.summarise.inform = FALSE)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache=TRUE, cache.lazy=TRUE,
+  fig.align='center',
+  warning = F,
+  dev=c('png'),
+  message=FALSE
+)
+
+library("tidyverse")
+library('ggpubr')
+library('knitr')
+# library('ggmanh')
+
+theme_set(theme_bw())
+
+
+```
+
+```{r}
+# Information about the SNPs used, including allele frequencies and correlation with
+# population structure.
+snps_to_simulate <- read_delim(
+  "05_results/09_gwas_single_loci/output/snps_to_simulate.tsv", delim = '\t'
+) %>%
+  rename(chr= chrom)
+
+sims <- rbind(
+  read_csv(
+    "05_results/10_sim_case_controls/output/simulation_summary.csv"
+  ) %>% 
+    mutate(background = "SNP only"),
+  read_csv(
+    "05_results/11_sim_background/output/simulation_summary.csv"
+  ) %>% 
+    mutate(background = "Uncorrelated"),
+  read_csv(
+    "05_results/12_correlated_background/output/simulation_summary.csv"
+  ) %>% 
+    mutate(
+      background = "Correlated")
+)
+
+sims <- sims %>% 
+  mutate(
+    background = fct_relevel(as.factor(background), "SNP only", "Uncorrelated", "Correlated"),
+    log10_p = -log10(p_target_SNP),
+    liability  = str_replace(liability, "p", ""),
+    true_pos = p_target_SNP < (0.05 / 865569),
+    false_pos = n_false_pos > 0,
+    delta_b = 2*beta - (as.numeric(liability) - (1-as.numeric(liability))),
+    includes_K = ifelse(includes_K == "with_K", "Yes", "No"),
+    cohort = case_match(
+      cohort,
+      'parents' ~ 'Parents',
+      'rep1' ~ "F8 replicate 1",
+      "rep2" ~ "F8 replicate 2"
+    ),
+    cohort = fct_relevel(as.factor(cohort), "Parents")
+  )
+
+```
+
+<!-- ## The Divine Comedy -->
+
+<!-- ```{r dante, echo=FALSE, out.width = '60%'} -->
+<!-- dd <- paste0(getwd(), '/07_presentations/240726_ICQG/dante-inferno.jpg') -->
+<!-- knitr::include_graphics(dd, error=FALSE) -->
+
+<!-- ``` -->
+
+<!-- - Dante journeys through Hell and Purgatory to salvation -->
+
+<!-- ## The Divine Comedy -->
+
+<!-- ```{r dante-lynch-walsh, echo=FALSE, out.width = '60%'} -->
+<!-- dd <- paste0(getwd(), '/07_presentations/240726_ICQG/dante_lynch_walsh.png') -->
+<!-- knitr::include_graphics(dd, error=FALSE) -->
+
+<!-- ``` -->
+
+<!-- - Dante journeys through Hell and Purgatory to salvation -->
+
+## Many circles of hell
+
+```{r circles-of-hell, echo=FALSE, out.width = '40%'}
+dd <- paste0(getwd(), '/07_presentations/240726_ICQG/circles_of_hell.jpg')
+knitr::include_graphics(dd, error=FALSE)
+
+```
+
+- Dante descends the 9 circles of hell
+- Punishments get progressively more nightmarish
+
+## Goals
+
+- Descend the many circles of GWAS confounding hell for *A. thaliana*
+- What hope is there for salvation?
+
+## Goals
+
+- Descend the many circles of GWAS confounding hell for *A. thaliana*
+- What hope is there for salvation?
+- Preliminary results about dataset to help
+- Does a correction for confounding work?
+
+
+## Acknowledgements
+
+```{r acknowledgements, out.width="90%"}
+dd <- paste0(getwd(), '/07_presentations/ackowledgements.png')
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- Crosses: Polina Novikova, Viktoria Nizhynska, Pamela Korte, Viktor Voronin
+- Lab support: Almudena Mollá Moráles
+
+# Circles of GWAS hell
+
+## Sources of confounding 
+
+```{r circles1, out.width = '70%'}
+
+dd <- paste0(getwd(), '07_presentations/240726_ICQG/circles1.png')
+knitr::include_graphics(dd, error=FALSE)
+
+```
+
+## Sources of confounding
+
+<div style="float: left; width: 50%;">
+
+**Environmental confounding:**
+
+- Plants grow faster if its warm
+- Humans are healthier if they're well fed
+
+</div>
+
+
+<div style="float: right; width: 50%;">
+
+</div>
+
+## Sources of confounding
+
+<div style="float: left; width: 50%;">
+
+**Environmental confounding:**
+
+- Plants grow faster if its warm
+- Humans are healthier if they're well fed
+- Deal with this:
+  - statistically
+  - experimentally
+  - not at all
+
+</div>
+
+
+<div style="float: right; width: 50%;">
+
+</div>
+
+## Sources of confounding 
+
+```{r circles2, out.width = '70%'}
+
+dd <- paste0(getwd(), '07_presentations/240726_ICQG/circles2.png')
+knitr::include_graphics(dd, error=FALSE)
+
+```
+
+<!-- ## Structure causes LD -->
+
+```{r pca}
+
+# List of file paths giving eigenvectors
+eigenvec_files <- list(
+  rep1 = "05_results/01_pca/output/F8_snp_matrix_purged_rep1.eigenvec",
+  rep2 = "05_results/01_pca/output/F8_snp_matrix_purged_rep2.eigenvec",
+  parents = "05_results/01_pca/output/parental_snp_matrix.eigenvec"
+)
+# List of file paths giving eigen values
+eigenval_files <- list(
+  rep1 = "05_results/01_pca/output/F8_snp_matrix_purged_rep1.eigenval",
+  rep2 = "05_results/01_pca/output/F8_snp_matrix_purged_rep2.eigenval",
+  parents = "05_results/01_pca/output/parental_snp_matrix.eigenval"
+)
+
+# Import PCA data
+eigenvecs <- lapply(names(eigenvec_files), function(name){
+  filename <- eigenvec_files[[name]]
+  read.table(filename, header=TRUE) %>%
+    as_tibble() %>%
+    mutate(
+      dataset = name
+    )
+})
+eigenvals <- lapply(names(eigenval_files), function(name){
+  filename <- eigenval_files[[name]]
+  read.table(filename, col.names="eigenval", header=FALSE) %>%
+    as_tibble() %>%
+    mutate(
+      eigenval = round(100*(eigenval / sum(eigenval)), 1),
+      dataset = name
+    )
+})
+
+pca_parents <- eigenvecs[[3]] %>%
+  ggplot(aes(x=PC1, y = PC2)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals[[3]]$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals[[3]]$eigenval[2], "%)")
+  ) +
+  theme_bw()
+
+# pca_parents
+# ggarrange(pca_parents, NULL)
+```
+
+<!-- - PCA of genetic variation in *A. thaliana* in Sweden -->
+<!-- - SNPs are associated with traits, but also with each other -->
+
+<!-- ## LD inflates associations -->
+
+```{r}
+
+set.seed(10)
+plot_uncorrelated_confounding <- tibble(
+  Marker = 1:20,
+  Effect = c(1, rnorm(19, mean = 0, sd = 0.1)),
+  Type = c("SNP being tested", rep("Linked SNPs", 19))
+) %>% 
+  ggplot(aes(x=Marker, y = Effect, colour = Type)) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  lims(
+    y=c(-0.25, 1)
+  ) +
+  labs(
+    x = "Linked marker",
+    y = "Allelic effect"
+  ) +
+  theme(
+    axis.ticks.x = element_blank()
+  )
+
+plot_correlated_confounding <- tibble(
+  Marker = 1:20,
+  Effect = c(1, rnorm(19, mean = 0.3, sd = 0.1)),
+  Type = c("SNP being tested", rep("Correlated SNPs", 19))
+) %>% 
+  ggplot(aes(x=Marker, y = Effect, colour = Type)) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  lims(
+    y=c(-0.25, 1)
+  ) +
+  labs(
+    x = "Linked marker",
+    y = "Allelic effect",
+  ) +
+  theme(
+    axis.ticks.x = element_blank()
+  )
+
+# ggarrange(pca_parents, plot_uncorrelated_confounding, legend = 'bottom')
+
+
+```
+
+<!-- - Effects at linked loci inflate associations at the SNP you're testing -->
+
+## Sources of confounding
+
+<div style="float: left; width: 50%;">
+
+**Environmental confounding:**
+
+- Plants grow faster if its warm
+- Humans are healthier if they're well fed
+- Deal with this:
+  - statistically
+  - experimentally
+  - not at all
+</div>
+
+
+<div style="float: right; width: 50%;">
+**Confounding between loci**
+
+- Structure inflates linkage disequilibrium
+- LD inflates associations
+</div>
+
+## Sources of confounding
+
+<div style="float: left; width: 50%;">
+
+**Environmental confounding:**
+
+- Plants grow faster if its warm
+- Humans are healthier if they're well fed
+- Deal with this:
+  - statistically
+  - experimentally
+  - not at all
+</div>
+
+<div style="float: right; width: 50%;">
+**Confounding between loci**
+
+- Structure inflates linkage disequilibrium
+- LD inflates associations
+- Deal with this:
+  - statistically
+  - experimentally
+  - not at all
+
+</div>
+
+## Sources of confounding 
+
+```{r circles3, out.width = '70%'}
+
+dd <- paste0(getwd(), '07_presentations/240726_ICQG/circles3.png')
+knitr::include_graphics(dd, error=FALSE)
+
+```
+
+## Are effects correlated with structure?
+
+```{r cor-vs-uncorr-effects}
+
+ggarrange(plot_uncorrelated_confounding, NULL, common.legend = TRUE, legend='bottom')
+
+```
+
+1. Direction of effects *is not correlated* with population structure
+
+## Are effects correlated with structure?
+
+```{r}
+ggarrange(plot_uncorrelated_confounding, plot_correlated_confounding, common.legend = TRUE, legend='bottom')
+```
+
+1. Direction of effects *is not correlated* with population structure
+2. Direction of effects *is correlated* with population structure
+
+## Sources of confounding
+
+```{r, ref.label="circles3", out.width="80%"}
+```
+<!-- ## Sources of confounding -->
+
+<!-- ```{r circles4, out.width = '80%'} -->
+
+<!-- dd <- paste0(getwd(), '07_presentations/240726_ICQG/circles4.png') -->
+<!-- knitr::include_graphics(dd, error=FALSE) -->
+
+<!-- ``` -->
+
+<!-- ## Bonus circle | Confounding with structural variation -->
+
+<!-- <div style="float: left; width: 50%;"> -->
+<!-- ```{r igolkina-etal, out.width = '70%'} -->
+
+<!-- dd <- paste0(getwd(), '07_presentations/240726_ICQG/igolkina_fig81.png') -->
+<!-- knitr::include_graphics(dd, error=FALSE) -->
+
+<!-- ``` -->
+<!-- </div> -->
+
+<!-- <div style="float: right; width: 50%;"> -->
+
+<!-- - Map reads to 27 compete genomes, and call SNPs -->
+<!-- - SNP calls are worse if you align to the wrong genome -->
+<!-- - See: Igolkina et al (2024), biorxiv, "Towards an unbiased characterization of genetic polymorphism" -->
+
+<!-- </div> -->
+
+<!-- ## Sources of confounding  -->
+
+<!-- ```{r, ref.label='circles4', out.width = '80%'} -->
+<!-- ``` -->
+
+## Oh the horror!
+
+```{r confounding-controll-env, fig.show = "hold", out.width = "50%", fig.align = "default"}
+
+mh <- paste0(getwd(), '/05_results/07_gemma_seed_size/output/no_K/seed_size_blups_parents_manhattan_plot.png')
+
+qq <- paste0(getwd(), '/05_results/07_gemma_seed_size/output/no_K/seed_size_blups_parents_QQplot.png')
+
+knitr::include_graphics(c(mh, qq), error=FALSE)
+```
+
+- Seed size in Swedish *A. thaliana*
+- Everything correlated with everything
+
+
+# A dataset with less structure
+
+## Reduce structure by crossing
+
+- 215 lines from a very structured population of *A. thaliana*
+- One round of random mating
+
+## Reduce structure by crossing
+
+- 215 lines from a very structured population of *A. thaliana*
+- One round of random mating
+- 9 generations of single-seed descent
+- 2 replicates per cross
+
+## Reduce structure by crossing
+
+- 215 lines from a very structured population of *A. thaliana*
+- One round of random mating
+- 9 generations of single-seed descent
+- 2 replicates per cross
+- Sequenced the F8s
+- Phenotype F9s (ongoing)
+
+## Reduce structure by crossing
+
+- 215 lines from a very structured population of *A. thaliana*
+- One round of random mating
+- 9 generations of single-seed descent
+- 2 replicates per cross
+- Sequenced the F8s
+- Phenotype F9s (ongoing)
+- Goal: make this a community resource
+
+## Structure is diluted
+
+```{r pca-parents-F8s}
+
+ggarrange(
+  eigenvecs[[3]] %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[3]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[3]]$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+  
+  eigenvecs[[1]] %>%
+    ggplot(aes(x=-PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[1]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[1]]$eigenval[2], "%)"),
+      title = "F8, cohort 1"
+    ) +
+    theme_bw(),
+  
+  eigenvecs[[2]] %>%
+    ggplot(aes(x=-PC1, y = -PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[2]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[2]]$eigenval[2], "%)"),
+      title = "F8, cohort 2"
+    ) +
+    theme_bw(),
+  
+  ncol = 3
+)
+```
+
+<!-- ## Allele frequencies maintained -->
+
+<!-- ```{r af-scatter} -->
+<!-- gwas.cross <- read_delim('05_results/07_gemma_seed_size/output/with_K/seed_size_blups_F9_rep1.assoc.txt', delim = '\t') -->
+<!-- gwas.parent <- read_delim('05_results/07_gemma_seed_size/output/with_K/seed_size_blups_parents.assoc.txt', delim = '\t') -->
+
+<!-- gwas.result <- inner_join(gwas.cross, gwas.parent, suffix = c('.cross', '.parent'), by = c('chr', 'ps')) -->
+
+<!-- maf.plt <- gwas.result %>% -->
+<!--   ggplot(aes(x = af.parent, y = af.cross)) + -->
+<!--   geom_point(size = 0.1) + -->
+<!--   theme_classic() + -->
+<!--   labs(x = 'Parents', -->
+<!--        y = 'F8s', -->
+<!--        title = 'minor allele frequencies') + -->
+<!--   geom_abline(intercept = 0, slope = 1, col = 'red') -->
+<!-- maf.plt -->
+<!-- ``` -->
+
+# Does population structure correction work?
+
+## Kinship correction
+
+```{r}
+plot_uncorrelated_confounding
+```
+
+- Small effects at many loci across the genome
+- Overall effect is predicted by relatedness
+
+## Simulate phenotypes from real genetic data
+
+- Use the real linkage in the parents and F8s
+- Simulate a binary phenotype
+- Three levels of confounding
+
+## Simulate phenotypes from real genetic data
+
+- Use the real linkage in the parents and F8s
+- Simulate a binary phenotype
+- Three levels of confounding
+- Run GWAS
+- ????
+- Profit
+
+## Confounding scenarios
+
+
+```{r simulation-scenarios-1, fig.height=4}
+plot_main_effects <- tibble(
+  Marker = 1:20,
+  Effect = c(1, rep(0, 19)),
+  Type = c("SNP being tested", rep("Linked SNPs", 19))
+) %>% 
+  ggplot(aes(x=Marker, y = Effect, colour = Type)) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  lims(
+    y=c(-0.25, 1)
+  ) +
+  labs(
+    x = "Linked marker",
+    y = "Allelic effect"
+  ) +
+  theme(
+    axis.ticks.x = element_blank()
+  )
+
+ggarrange(
+  plot_main_effects + labs(title = "SNP only"),
+  NULL,
+  NULL,
+  common.legend = TRUE, legend = 'bottom',
+  ncol=3
+)
+
+```
+
+- Phenotype depends on a single SNP, with no background effect
+
+## Confounding scenarios
+
+```{r simulation-scenarios-2, fig.height=4}
+ggarrange(
+  plot_main_effects + labs(title = "SNP only"),
+  plot_uncorrelated_confounding + labs(title = "Uncorrelated background"),
+  NULL,
+  common.legend = TRUE, legend = 'bottom',
+  ncol=3
+)
+```
+
+- Phenotype depends on a large-effect SNP, plus 10000 SNPs with very small effect
+
+## Confounding scenarios
+
+```{r simulation-scenarios-3, fig.height=4}
+ggarrange(
+  plot_main_effects + labs(title = "SNP only"),
+  plot_uncorrelated_confounding + labs(title = "Uncorrelated background"),
+  plot_correlated_confounding + labs(title = "Correlated background"),
+  common.legend = TRUE, legend = 'bottom',
+  ncol=3
+)
+```
+
+- Phenotype depends on a large-effect SNP, plus 10000 SNPs with very small effect
+- Direction of the background SNPs correlates with PC1 of population structure
+
+## Raw confounding
+
+```{r confounding-parents, fig.height=4}
+sims %>% 
+  filter(includes_K == "No", cohort == "Parents") %>%
+  ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect",
+    title = "Uncorrected confounding in parents"
+  )
+```
+
+- Genomic inflation factor should be around 1
+
+## Stronger effects &#8594; more confounding
+
+```{r, ref.label="confounding-parents", fig.height=4}
+```
+
+- Stronger main-QTL alleles cause stronger confounding
+
+## Stronger effects &#8594; more confounding
+
+```{r, ref.label="confounding-parents", fig.height=4}
+```
+
+- Stronger main-QTL alleles cause stronger confounding
+  - Even if there's no background
+
+## Stronger effects &#8594; more confounding
+
+```{r, ref.label="confounding-parents", fig.height=4}
+```
+
+- Stronger main-QTL alleles cause stronger confounding
+  - Even if there's no background
+- Stronger background effects increase confounding
+
+## Crossing reduces confounding
+
+```{r confounding-across-cohorts}
+confounding_noK <- sims %>% 
+  filter(includes_K == "No") %>%
+  ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect",
+    title = "GIF without K-matrix correction"
+  ) +
+  facet_grid( ~ cohort)
+
+confounding_noK
+```
+
+- Mean and spread of confounding much reduced
+
+## Using a K matrix helps a lot
+
+```{r confounding-facet_grid}
+sims %>% 
+  mutate(
+    includes_K = ifelse(includes_K == "Yes", "Corrected", "Uncorrected")
+  ) %>% 
+  ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect"
+  ) +
+  facet_grid(includes_K~ cohort)
+```
+
+- GIF shrinks close to 1
+
+## Correction is not perfect
+
+```{r correction-not-perfect, fig.height=4}
+sims %>% 
+  filter(includes_K == "Yes", cohort == "Parents") %>%
+  ggplot(aes(x = liability, y = gif, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "Genomic inflation factor",
+    x = "True allelic effect (liability)",
+    fill = "Background effect",
+    title = "Residual inflation (parents only)"
+  ) #+
+#facet_grid( ~ cohort)
+```
+
+- Correction works best if there are large-effect QTL
+
+## Correction is not perfect
+
+```{r, ref.label="correction-not-perfect", fig.height=4}
+```
+
+- Correction works best if there are large-effect QTL
+- Correction is worse with stronger background effects
+
+## Correction is not perfect
+
+```{r, ref.label="correction-not-perfect", fig.height=4}
+```
+
+- Correction works best if there are large-effect QTL
+- Correction is worse with stronger background effects
+- Substantial spread
+
+## Decreased associations at true SNPs
+
+```{r}
+sims %>% 
+  filter(includes_K == "Yes", cohort == "Parents") %>%
+  ggplot(aes(x = liability, y = log10_p, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "-log10 p-value",
+    x = "True allelic effect (liability)",
+    fill = "Background effect",
+    title = "Associations at true QTL"
+  )
+```
+
+## Crossing doesn't affect true QTL
+
+```{r, out.width="90%"}
+sims %>% 
+  filter(includes_K == "Yes") %>%
+  ggplot(aes(x = liability, y = log10_p, fill = background)) +
+  geom_boxplot() +
+  labs(
+    y = "-log10 p-value",
+    x = "True allelic effect (liability)",
+    fill = "Background effect",
+    title = "Associations at true QTL"
+  ) + 
+  facet_grid(~ cohort)
+```
+
+
+<!-- ## Effect sizes are underestimated -->
+
+<!-- ```{r} -->
+<!-- sims %>%  -->
+<!--   filter(includes_K == "Yes", cohort == "Parents") %>% -->
+<!--   ggplot(aes(x = liability, y = delta_b, fill = background)) + -->
+<!--   geom_boxplot() + -->
+<!--   labs( -->
+<!--     y = "Estimated - true effect size", -->
+<!--     x = "True allelic effect (liability)", -->
+<!--     fill = "Background effect", -->
+<!--     title = "Error in effect sizes in parents" -->
+<!--   ) -->
+<!-- ``` -->
+
+<!-- - Kinship correction overcorrects true effects -->
+<!-- - True for parents and F8s -->
+
+## Summary
+
+- Confounding gets worse with stronger background effects
+  - Kinship matrix (mostly) fixes it
+- Correction underestimates true effects
+  - Crossing does not fix this bias
+
+<!-- # Next steps -->
+
+<!-- ## Next steps -->
+
+<!-- - Validate genotypes -->
+<!-- - Haplotypes -->
+
+<!-- ## Next steps -->
+
+<!-- - Validate genotypes -->
+<!-- - Haplotypes -->
+<!-- - Currently measuring: -->
+<!--   - Growth rate -->
+<!--   - Flowering time -->
+<!--   - Seed size -->
+
+<!-- ## Next steps -->
+
+<!-- - Validate genotypes -->
+<!-- - Haplotypes -->
+<!-- - Currently measuring: -->
+<!--   - Growth rate -->
+<!--   - Flowering time -->
+<!--   - Seed size -->
+<!-- - Extend: -->
+<!--   - Epistasis -->
+<!--   - Genomic prediction -->
+  
+# Messages 
+
+## Messages
+
+```{r, ref.label='circles3', out.width="80%"}
+
+```
+
+## Messages
+
+- Population that covers many circles of confounding hell
+- Crosses &rarr; community resource to help
+
+## Messages
+
+- Population that covers many circles of confounding hell
+- Crosses &#8594; community resource to help
+- Simulations show that kinship correction mostly works
+  - Selection causes bias
+  
+## Messages
+
+- Population that covers many circles of confounding hell
+- Crosses &#8594; community resource to help
+- Simulations show that kinship correction mostly works
+  - Selection causes bias
+- Phentoyping ongoing
+
