@@ -10,18 +10,17 @@ dependencies:
   - cutadapt
   - fastqc
   - gemma
-  - h5py
   - multiqc
   - numpy
-  - pandas
+  - pandas>=2.2.2
   - parallel
   - picard
   - pip
+  - plink
   - plink2
-  - python
+  - python>3.10
   - r-base
   - r-ggplot2
-  - t-tidyverse
   - r-vctrs=0.5.1
   - samtools
   - tabix

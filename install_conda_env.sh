@@ -13,4 +13,4 @@
 #SBATCH --time=1:00:00
 
 # module load anaconda3/2023.03
-conda env create -f environment.yml
+micromamba env create -f environment.yml

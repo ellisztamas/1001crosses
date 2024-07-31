@@ -8,7 +8,10 @@ and 427 F9 lines.
     by Tom Ellis. They are successive backups of the same data, so are partially
     redundant.
     Other files are collected by Almudena Molla Morales, and give the plants that
-    flowered on a single day.
+    flowered on a single day. Three files contain 'Estimated', which are plants
+    from replicate 3 that Almudena did not notice, because they were on a high
+    shelf, and she estimated in retrospect.
+    Note that I manually corrected entry 1137 9405x6100 rep2 3.38.H4 to 1137_3.38.H4_9405x6100 rep2_F8
 - F9_seed_availability.csv
     A list of seed stocks processed by Tal Dahan in February 2024 to be measured
     for seed size. The seeds are the F9 progeny of the F8 plants that were
