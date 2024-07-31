@@ -14,16 +14,36 @@ structure in *Arabidopsis thaliana*.
 
 ## Experimental design
 
-## Data
-
-Additional readme files in `01_data` give additional details as necessary.
-
-### Design
+### Crosses
 
 Random pairs of 217 accessions from Sweden (that show strong population
 structure) were crossed. Most of these crosses were reciprocal. The whole crossing
 scheme was repeated to give two replicates of a bit more than 200 lines in 
 duplicate. Each line was maintained by single-line descent for nine generations.
+
+#### Phenotyping experiment at 12°C
+
+Tom Ellis set up a phenotyping experiment to collect data on rosette size (a 
+proxy for growth), flowering time and seed size in the parents and F9s.
+
+* 427 F9 families
+* 219 parental lines
+* Each line is replicated in three cohorts, with germination staggered by a few
+weeks between cohorts.
+* The experiment was meant to be at 10°C, but we realised the temperature sensor
+in growth room 13 overreads, so we kept it at 12°C.
+* We measured rosette size using the app easyLeafArea.
+* Each pot label had a QR code encoding the position and ID of the plant. When
+plants flowered I scanned them with an app that also recorded the date. Almudena
+Morales also recorded some dates using a separate app.
+* After flowering, plants were moved to greenhouse chamber 1 for seeds to mature.
+
+Full details are documented on eLabJournal:
+https://vbc.elabjournal.com/members/experiments/browser/#view=experiment&nodeID=253766&page=0&userID=0&status=0&column=created&order=DESC&search=
+
+## Data
+
+Additional readme files in `01_data` give additional details as necessary.
 
 ### Sequence data
 
@@ -46,30 +66,9 @@ See NGS master list plates 2022-007 and 2022-008.
 
 #### Phenotyping experiment at 12°C
 
-Tom Ellis set up a phenotyping experiment to collect data on rosette size (a 
-proxy for growth), flowering time and seed size in the parents and F9s.
+Data on the phenotyping experiment are in `01_data/05_phenotype_expt`
 
-* 427 F9 families
-* 219 parental lines
-* Each line is replicated in three cohorts, with germination staggered by a few
-weeks between cohorts.
-* The experiment was meant to be at 10°C, but we realised the temperature sensor
-in growth room 13 overreads, so we kept it at 12°C.
-* We measured rosette size using the app easyLeafArea.
-* Each pot label had a QR code encoding the position and ID of the plant. When
-plants flowered I scanned them with an app that also recorded the date. Almudena
-Morales also recorded some dates using a separate app.
-* After flowering, plants were moved to greenhouse chamber 1 for seeds to mature.
-
-Full details are documented on eLabJournal:
-https://vbc.elabjournal.com/members/experiments/browser/#view=experiment&nodeID=253766&page=0&userID=0&status=0&column=created&order=DESC&search=
-
-#### Flowering time (deprecated)
-
-Joanna Gunis measured flowering time in the F8s.
-
-We will probably not use these data because parents and F8s were not grown in the
-same environment, there is on replication, and randomisation is not ideal.
+See `readme.md` in that directory for details.
 
 #### External seed size data
 
@@ -77,6 +76,16 @@ Tal Dahan sent seeds for the F8s and the parents (from the 2017 seed stock) to
 be measured by Boxeed in the Czech Republic. Since these cohorts are from
 different maternal environments we also plan to send the F9s and parents from 
 the flowering time experiment when these are mature.
+
+The data are in `01_data/06_external_seed_size`.
+
+#### Flowering time (deprecated)
+
+Joanna Gunis measured flowering time in the F8s.
+We will probably not use these data because parents and F8s were not grown in the
+same environment, there is on replication, and randomisation is not ideal.
+
+Data are in `01_data/07_flowering_time_joanna`.
 
 ## Processing and analysis
 
@@ -128,3 +137,9 @@ This project uses R 4.2.1 and the tidyverse suite of packages.
 ## Acknoweldgements
 
 We thank members of the Nordborg group over many years for constructive feedback about the project.
+
+This research was funded in whole or in part by the Austrian Science Fund (FWF) 10.55776/F91.
+
+## License
+
+Creative Commons Attribution 4.0 International
