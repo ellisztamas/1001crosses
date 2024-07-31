@@ -20,7 +20,7 @@ dir.create(outdir, showWarnings = FALSE)
 
 # Flowering time data for the parents
 parents <- read_csv(
-  "01_data/05_phenotypes/flowering_time_10C_parents.csv",
+  "01_data/05_phenotype_expt/flowering_time_10C_parents.csv",
   col_types="cd"
   )
 

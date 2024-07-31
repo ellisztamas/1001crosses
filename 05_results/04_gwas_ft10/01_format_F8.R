@@ -31,7 +31,7 @@ sm_results <- read_csv(
 # Phenotype data
 # Merge with SNPmatch results, filter for correct matches and split the sample name
 ft10 <- read_csv(
-  "01_data/05_phenotypes/flowering_time_F8s.csv",
+  "01_data/05_phenotype_expt/flowering_time_F8s.csv",
   col_types = 'cfffcci'
   ) %>%
   mutate(

@@ -22,6 +22,4 @@ How has the structure changed between the parents and F8s?
 
 ## Caveats
 
-PC3 not obviously shared between cohorts
-
 ## Follow-up

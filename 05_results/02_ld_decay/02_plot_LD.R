@@ -10,7 +10,7 @@ library(plyr)
 ld_files <- list(
   rep1="05_results/02_ld_decay/output/F8_snp_matrix_purged_rep1.ld.gz",
   rep2="05_results/02_ld_decay/output/F8_snp_matrix_purged_rep2.ld.gz",
-  parents='05_results/02_ld_decay/output/'
+  parents='05_results/02_ld_decay/output/parental_snp_matrix.ld.gz'
 )
 
 
@@ -52,7 +52,7 @@ for(name in names(ld_files)){
 # })
 
 do.call(what = 'rbind', ld_bins) %>%
-  ggplot(aes(x=bin*100, y = mean_r2, colour=dataset)) +
+  ggplot(aes(x=bin*100, y = meanr2, colour=dataset)) +
   geom_point() +
   labs(
     x = "Physical distance (bp)",

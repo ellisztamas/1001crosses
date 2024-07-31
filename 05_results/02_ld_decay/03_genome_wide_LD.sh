@@ -1,26 +1,22 @@
 #!/usr/bin/env bash
 
-# Use PLINK to summarise decay in LD for the two replicates of F8s plus the
-# parents
+# Use PLINK to create a matrix of pairwise LD for sites across the genome, 
+# including between chromosomes
 
-# Input:
-#    Three VCF files
-# Output:
-#    A zipped file giving LD between each SNP for each VCF file. Also three 
-#        additional PLINK files.
+# Input: Three VCF files
+# Output: A zipped file giving LD between each SNP for each VCF file. Also three 
+#     additional PLINK files.
 #
-# Tom Ellis, 15th December 2023
+# Tom Ellis, 17th July 2024
 
 # SLURM
-#SBATCH --job-name=ld_decay
+#SBATCH --job-name=ld_gw
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
-#SBATCH --mem=10GB
-#SBATCH --qos=rapid
-#SBATCH --time=1:00:00
+#SBATCH --mem=40GB
+#SBATCH --qos=medium
+#SBATCH --time=1-00:00:00
 #SBATCH --array=0-2
-
-date 
 
 source setup.sh
 
@@ -42,14 +38,16 @@ vcf_files=($rep1 $rep2 $parents)
 outdir=05_results/02_ld_decay/output
 mkdir -p $outdir
 
-# Calculate LD for replicate 1
+output_prefix=$outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )_ldmatrix
+
+# === Script === #
+
 plink \
     --vcf ${vcf_files[$i]} \
     --double-id --allow-extra-chr \
     --set-missing-var-ids @:# \
     --maf 0.05 --geno 0.1 --mind 0.5 \
-    --thin 0.1 -r2 gz --ld-window 100 --ld-window-kb 100 \
-    --ld-window-r2 0 \
-    --out $outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )
-
-date
+    -r2 gz \
+    --inter-chr \
+    --ld-window-r2 0 --thin 0.1 \ 
+    --out $output_prefix
