@@ -3,6 +3,11 @@
 A repo investigating the effect of one round of random mating on linkage
 structure in *Arabidopsis thaliana*.
 
+This is the GitHub version of the working project directory on the Vienna
+BioCenter cluster, and written with an internal audience in mind. A public, and
+probably more comprehensible, version will follow when I come to prepare this
+for publication.
+
 ## Table of contents
 
 1. [Experimental design](#experimental-design)
@@ -21,7 +26,7 @@ structure) were crossed. Most of these crosses were reciprocal. The whole crossi
 scheme was repeated to give two replicates of a bit more than 200 lines in 
 duplicate. Each line was maintained by single-line descent for nine generations.
 
-#### Phenotyping experiment at 12°C
+### Phenotyping experiment at 12°C
 
 Tom Ellis set up a phenotyping experiment to collect data on rosette size (a 
 proxy for growth), flowering time and seed size in the parents and F9s.
