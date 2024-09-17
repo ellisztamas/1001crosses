@@ -1,33 +1,40 @@
-
-# Validation of the ancestry of F8 genotypes
+---
+title: "Validation of the ancestry of F8 genotypes"
+author: "Tom Ellis"
+date: "2024-09-17"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    number_sections: false
+    theme: lumen
+  toc_depth: 4
+---
 
 This document gives an overview of visual valdidation of genotypes from the 
 1001 crosses project using the program [ibdpainting](https://github.com/ellisztamas/ibdpainting).
 It gives representative examples of different outcomes and a summary of how many cases were found of each.
 A comprehensive list of the result for each line is given in the file `ibdpainting_results.csv`
 
-## Contents
+```{r setup, echo =FALSE}
+knitr::opts_chunk$set(echo = FALSE, out.width="100%")
 
-* [Introduction](#introduction)
-    - [Crossing experiment](#crossing-experiment)
-    - [IBD painting](#ibd-painting)
-* [Samples that worked](#samples-that-worked)
-    - [Matching both parents](#matching-both-parents)
-    - [Residual heterozygosity](#residual-heterozygosity)
-* [Cases that are easy to diagnose](#cases-that-are-easy-to-diagnose)
-    - [No data](#no-data)
-    - [Expected parents are not in the reference panel](#expected-parents-are-not-in-the-reference-panel)
-    - [Labels were swapped](#labels-were-swapped)
-    - [Offspring is actually self-pollinated](#offspring-is-actually-self-pollinated)
-+ [Ambiguous cases](#ambiguous-cases)
-    - [Missing haplotypes](#missing-haplotypes)
-    - [Parent appears incorrect](#parent-appears-incorrect)
-    - [One parent *might* have been swapped](#one-parent-might-have-been-swapped)
-* [Summary and action](#summary-and-action)
+library(knitr)
 
-## Background
+path_plot <- function(filename){
+  include_graphics(
+    paste0(
+      '/groups/nordborg/projects/crosses/tom/03_processing/03_validate_genotypes/output/ibdpainting/',
+      filename )
+  )
+}
+```
 
-#### Crossing experiment
+
+# Background
+
+## Crossing experiment
 
 Random pairs of 219 accessions of *Arabidopsis thaliana* from Sweden were crossed, and one plant from each cross was then maintained by self-pollination.
 For most crosses two F2 seeds were propogated to give two replicates per cross.
@@ -45,7 +52,7 @@ We also calculate the distance to each of 1163 accessions based on data from an 
 
 One goal would be to determine whether parents are correct so that we can use the high-quality parental genotypes to improve the low-coverage F8 genotyping data.
 
-#### IBD painting
+### IBD painting
 
 [ibdpainting](https://github.com/ellisztamas/ibdpainting) is a visual tool to validate ancestry across a genome.
 For windows across the genome this calculates the genetic distance from a test individual to every genotype in a reference panel.
@@ -55,31 +62,37 @@ Smaller distances mean a closer match.
 In addition, it also generates an IBD score file for each *pair* of candidate parents.
 In each window it takes the minimum distances to either parent, and takes the average distance over the whole genome.
 
-## Samples that worked
+# Samples that worked
 
-#### Matching both parents
+## Matching both parents
 
 F8 individuals have been through seven rounds of self-fertilisation, so we expect them to be homozygous across the genome, with megabase-sized haplotypes matching one of the two parents.
-Figure 1 shows a good example of how such a genome should look.
+Figure \@ref(fig:good-example) shows a good example of how such a genome should look.
 Each point shows the average genetic distance from the sample 1_A3 in each window to the two expected parents (8423 and 9413 in red and blue).
 Also shown in grey are distances to the ten next-best-matching accessions.
 You can see that the F8 genome is a perfect match for one of the two expected parents at each window in the genome (where distance is zero), and that there are megabase-scale blocks of identity.
 We can also see that distances are not quite zero where ancestry blocks swap over; that's fine, it just means that there is a recombination site somewhere in the 500kb window, such that neither parent is a perfect match.
 A bit more than half of the samples look like this.
 
-![Figure 1: An example of an F8 individual which is homozygous for one of the two parents at each window in the genome.](output/ibdpainting/1_A3_plot_ibd.png)
+```{r good-example, fig.cap="An example of an F8 individual which is homozygous for one of the two parents at each window in the genome."}
+path_plot("1_A3_plot_ibd.png")
 
-Figure 2 shows a similar example of an F8 that matches one or both parents in each window.
+```
+
+Figure \@ref(fig:noisy-data) shows a similar example of an F8 that matches one or both parents in each window.
 In this case however the distances are not zero as they were in figure 1, and are generally noisy.
 The notes from the library preparation reveal that this sample had a very low DNA concentration.
 Nevertheless, it does match the expected parents, so we can say that the seed material is likely not contaminated, although one might wish to repeat the genotyping.
 There are seven samples that look like this.
 
-![Figure 2: An example of an F8 individual which matches one parent across the genome, but the signal is noisy](output/ibdpainting/4_F9_plot_ibd.png)
+```{r noisy-data, fig.cap="An example of an F8 individual which matches one parent across the genome, but the signal is noisy."}
 
-#### Residual heterozygosity
+path_plot("4_F9_plot_ibd.png")
+```
 
-Figure 3 shows an example of an F8 individual that matches one of the two expected parents, except for a two regions on chromosome 5.
+## Residual heterozygosity
+
+Figure \@ref(fig:residual-heterozygosity) shows an example of an F8 individual that matches one of the two expected parents, except for a two regions on chromosome 5.
 Nevertheless, the expected parents are still the closest matches.
 A simple explanation is that the F8 is heterozygous for two parental haplotypes in these regions.
 This can be confirmed by checking the genotypes in the region with `bcftools`:
@@ -89,35 +102,35 @@ bcftools query -s 1_C12 -r Chr5:12000000-13000000 -f"%CHROM %POS [ %GT] [ %AD]\n
 In this collection, genuinely heterozygous regions like this one have hundreds of heterozygous SNP calls per megabase.
 Homozygous regions have tens of heterozygous SNP calls per megabase, which are almost certainly miscalled.
 
-![Figure 3: An example of an F8 individual with residual heterozygosity on chromosome 5.](output/ibdpainting/1_C12_plot_ibd.png)
+```{r residual-heterozygosity, fig.cap="An example of an F8 individual with residual heterozygosity on chromosome 5."}
+path_plot('1_C12_plot_ibd.png')
+```
 
 There are 53 samples that show clear signs of residual heterozygosity in at least one place in the genome.
 This is a lower bound on the true number, because it is difficult to spot heterozygosity in cases where a parent is missing, or genotyping is ambiguous (see cases below).
 
-## Cases that are easy to diagnose
+# Cases that are easy to diagnose
 
-#### No data
+## No data
 
 16 samples are recorded as having zero or very low concentrations of DNA in the
 NGS libraries.
-Not surprisingly, it was not possible to call SNPs at almost any window, so the plots look nearly empty (figure 4).
+Not surprisingly, it was not possible to call SNPs at almost any window, so the plots look nearly empty (figure \@ref(fig:no-data)).
 This should be easy to fix by sowing more seeds and repeating the genotyping.
 
-![Figure 4: An example of an F8 individual with residual heterozygosity on chromosome 5.](output/ibdpainting/1_E7_plot_ibd.png)
+```{r no-data, fig.cap="An example of an F8 individual with residual heterozygosity on chromosome 5."}
+path_plot('1_E7_plot_ibd.png')
+```
 
-#### Expected parents are not in the reference panel
+## Expected parents are not in the reference panel
 
-Figure 5 shows a case where nothing matches.
+Figure \@ref(fig:parents-not-in-ref) shows a case where nothing matches.
 Lines for the expected parents are not plotted at all.
 The figure shows only grey lines, none of which match the F8.
 It turns out that the expected parents (accessions 1137 and 1074) were not included in the reference panel.
 
-![Figure 5: The parents of this cross were not in the reference panel, so no blue or red lines are plotted at all.](output/ibdpainting/3_D5_plot_ibd.png)
-
-Likewise, figure 6 shows an F8 from a cross between accessions 1137 and 8241.
+Likewise, figure \@ref(fig:one-parent-nir) shows an F8 from a cross between accessions 1137 and 8241.
 You can see long tracts where 8241 matches the F8, and long tracts where nothing matches, which are presumably homozygous for the 1137 haplotypes.
-
-![Figure 6: An example where one parent is missing from the reference panel, but the other is present, and a good match.](output/ibdpainting/1_D8_plot_ibd.png)
 
 Four crosses are affected by the two missing accessions (including the replicates of each, that gives eight lines in total)
 
@@ -126,13 +139,23 @@ Four crosses are affected by the two missing accessions (including the replicate
 * 1137x6237
 * 6195x1074
 
-#### Labels were swapped
+```{r parents-not-in-ref, fig.cap="The parents of this cross were not in the reference panel, so no blue or red lines are plotted at all."}
+path_plot('3_D5_plot_ibd.png')
+```
 
-Sample 2_H4 doesn't match it expected parents 9481 and 8307 (figure 7).
+```{r one-parent-nir, fig.cap="An example where one parent is missing from the reference panel, but the other is present, and a good match."}
+path_plot('1_D8_plot_ibd.png')
+```
+
+## Labels were swapped
+
+Sample 2_H4 doesn't match its expected parents 9481 and 8307 (figure \@ref(fig:labels-swapped)).
 However, there are grey lines close to zero across the genome, suggesting that 
 something else might fit.
 
-![Figure 7: This sample does not match the expected parents, but it does look like it matches something else.](output/ibdpainting/2_H4_plot_ibd.png)
+```{r labels-swapped, fig.cap="This sample does not match the expected parents, but it does look like it matches something else."}
+path_plot('2_H4_plot_ibd.png')
+```
 
 A quick look at the first rows of the score file for this sample suggests that the
 combination of 175 and 6913 are likely candidates - the IBD score for this pair
@@ -156,22 +179,26 @@ This looks like a simple case of 9481x8307 and 175x6913 being swapped.
 Surprisingly, there is only one extra case where both parents have clearly been confused with something else (6012x997 F8 rep1 is probably 6021x9407), and one where a single parent has clearly been swapped for something else (9470x6107 F8 rep1
 is probably 7002x6107).
 
-#### Offspring is actually self-pollinated
+## Offspring is actually self-pollinated
 
-Figure 8 shows what should be a cross between accessions 6108 and 6192.
+Figure \@ref(fig:self-pollinated) shows what should be a cross between accessions 6108 and 6192.
 However, it is in fact homozygous for the 6108 haplotype across the whole genome.
 This is likely because the initial cross failed, and the line is in fact descended from a self-pollinated seed of 6108.
 There is one additional case of this happening (6122x6252 replicate 2).
 
-![Figure 8: Example of an F8 plant that is homozygous across the whole genome.](output/ibdpainting/1_B8_plot_ibd.png)
+```{r self-pollinated, fig.cap="Example of an F8 plant that is homozygous across the whole genome."}
+path_plot('1_B8_plot_ibd.png')
+```
 
-### Ambiguous cases
+# Ambiguous cases
 
-#### Missing haplotypes
+## Missing haplotypes
 
-Figure 9 shows a sample that matches an expected parent at most of the genome, but there are some regions of chromosomes 1, 2, 4 and 5 that don't match either parent, and don't really match anything else in the reference panel.
+Figure \@ref(fig:missing-haplotypes) shows a sample that matches an expected parent at most of the genome, but there are some regions of chromosomes 1, 3, 4 and 5 that don't match either parent, and don't really match anything else in the reference panel.
 
-![Figure 9: This F8 plant matches the expected parent at most of the genome, but it is likely that the parts of the 6198 genome are still segregating.](output/ibdpainting/2_C11_plot_ibd.png)
+```{r missing-haplotypes, fig.cap="This F8 plant matches the expected parent at most of the genome, but it is likely that the parts of the 6198 genome are still segregating."}
+path_plot('2_C11_plot_ibd.png')
+```
 
 The fact that *most* of the genome matches indicates that this is not a sample mix up.
 There also don't appear to be any better candidates.
@@ -210,14 +237,16 @@ There are 45 lines that show pattern like this to a lesser or greater degree.
 In these cases the material is correct, but the reference panel is not a good representation of the genotypes.
 To get around this we will repeat the genotyping for these samples at high coverage to ensure SNPs are called accurately.
 
-#### Parent appears incorrect
+## Parent appears incorrect
 
-Sample 1_C4 matches expected parent 8283, but not 9471 (figure 10).
+Sample 1_C4 matches expected parent 8283, but not 9471 (figure \@ref(fig:incorrect-parent)).
 The stretches of mismatch are too long to be residual heterozygosity, and no other accessions in the reference panel match instead.
 It is likely that some other accession was used in the cross, but that this accession was not in the reference panel.
 Note that this is different from the case where [1137 and 1074 were missing](#expected-parents-are-not-in-the-reference-panel), because those crosses likely involve the correct parents.
 
-![Figure 10: Sample that matches one parent, but the other parent appears to be missing.](output/ibdpainting/1_C4_plot_ibd.png)
+```{r incorrect-parent, fig.cap="Sample that matches one parent, but the other parent appears to be missing."}
+path_plot('1_C4_plot_ibd.png')
+```
 
 There are 18 such cases where one parent appears to be missing, and one case where both parents seem to be missing.
 Possible options here are to
@@ -225,13 +254,15 @@ Possible options here are to
 1. Discard these samples
 2. Treat them as valid and sequence at higher coverage
 
-#### One parent *might* have been swapped
+## One parent *might* have been swapped
 
-Sample 1_G10 matches expected parent 8256, but not 1367 (figure 11).
+Sample 1_G10 matches expected parent 8256, but not 1367 (figure \@ref(fig:ambiguous-swap)).
 You can also see that there is at least one (multiple lines can hide each other) grey line close to zero in the regions where neither expected parent matches.
 However, the grey lines are not really convincing matches.
 
-![Figure 11: Sample that matches one but not both parents, and there is another candidate that partially matches the remaining haplotypes.](output/ibdpainting/1_G10_plot_ibd.png)
+```{r ambiguous-swap, fig.cap="Sample that matches one but not both parents, and there is another candidate that partially matches the remaining haplotypes."}
+path_plot('1_G10_plot_ibd.png')
+```
 
 Similarly, a look at the IBD score file for this sample suggests that the missing parent might be 1061, but the evidence is not strong:
 ```
@@ -253,15 +284,15 @@ An alternative explanation is that the true parent is really missing [as before]
 It is hard to know.
 There are three additional crosses where both replicates look like one parent is missing and there is another candidate that *kinda* looks like it could be the parents, and two where only one replicate looks like there is an obvious other candidate (ten lines in total).
 
-## Summary and action
+# Summary and action
 
 Here is a summary of the outcomes of validation of 427 F8 lines:
 
-1. 322 lines are good matches to expected parents. *No action required*.
-2. 42 lines are likely matches to the expected parents, but the parent of the cross does not match the parent in the reference panel (because there is probably residual heterozygosity in the parental seed stock). *Sequence the F8s at higher coverage*.
-3. 17 samples have no data. *Grow the plants again and repeat sequencing*.
-4. 2 lines are self-pollinated. *Discard these lines*.
-5. 8 lines have one or both parents that are likely correct, but the parents (1137 and 1074) are not in the reference panel. *Sequence 1137 and 1074 at high coverage*.
-6. 6 lines do not match the expected parents, but are a close match to another accession in the reference panel. *Swap the labels*.
-7. 11 lines do match one or both parents, and there is an ambiguous match to another accession in the reference panel. *Either resequence or discard*.
-8. 22 lines do not match one or both parents. The true parent is likely not in the reference panel. *Sequence these at higher coverage*.
+* 322 lines are good matches to expected parents. *No action required*.
+* 42 lines are likely matches to the expected parents, but the parent of the cross does not match the parent in the reference panel (because there is probably residual heterozygosity in the parental seed stock). *Sequence the F8s at higher coverage*.
+* 17 samples have no data. *Grow the plants again and repeat sequencing*.
+* 2 lines are self-pollinated. *Discard these lines*.
+* 8 lines have one or both parents that are likely correct, but the parents (1137 and 1074) are not in the reference panel. *Sequence 1137 and 1074 at high coverage*.
+* 6 lines do not match the expected parents, but are a close match to another accession in the reference panel. *Swap the labels*.
+* 11 lines do match one or both parents, and there is an ambiguous match to another accession in the reference panel. *Either resequence or discard*.
+* 22 lines do not match one or both parents. The true parent is likely not in the reference panel. *Sequence these at higher coverage*.
