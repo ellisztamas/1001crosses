@@ -16,7 +16,7 @@
 #SBATCH --mem=40GB
 #SBATCH --qos=medium
 #SBATCH --time=1-00:00:00
-#SBATCH --array=0-2
+#SBATCH --array=1
 
 source setup.sh
 
@@ -24,13 +24,13 @@ source setup.sh
 
 i=$SLURM_ARRAY_TASK_ID
 
-# Path to a VCF files with dubious samples removed
-rep1=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
-rep2=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
-# VCF file for the parents
-parents=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
+# VCF files
+F9_vcf=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
+parents_vcf=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
+# F9_vcf=03_processing/03_validate_genotypes/output/progeny_only_genic_SNPs_mac160.vcf.gz
+# parents=03_processing/03_validate_genotypes/output/parents_only_genic_SNPs_mac160.vcf.gz
 # Make a Bash array of the three VCF files
-vcf_files=($rep1 $rep2 $parents)
+vcf_files=($F9_vcf $parents_vcf)
 
 # === Output === 
 
@@ -46,8 +46,7 @@ plink \
     --vcf ${vcf_files[$i]} \
     --double-id --allow-extra-chr \
     --set-missing-var-ids @:# \
-    --maf 0.05 --geno 0.1 --mind 0.5 \
-    -r2 gz \
-    --inter-chr \
-    --ld-window-r2 0 --thin 0.1 \ 
+    --maf 0.2 --geno 0.1 \
+    -r2 inter-chr \
+    --ld-window-r2 0.5 \
     --out $output_prefix
