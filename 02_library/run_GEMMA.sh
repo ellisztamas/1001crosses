@@ -104,6 +104,7 @@ pheno_name=$(basename $pheno_file)
 pheno_name=${pheno_name%.*}
 # Paths for output
 mkdir -p $outdir
+sample_list=$outdir/${pheno_name}_sample_list.txt
 subsetted_VCF=$outdir/${pheno_name}.vcf
 plink_output=$outdir/$pheno_name
 relatedness_matrix=${pheno_name}_K_matrix
@@ -111,10 +112,9 @@ relatedness_matrix=${pheno_name}_K_matrix
 # Format the data files required for running GEMMA
 echo "Subsetting the VCF file to include only those samples in the phenotype file..."
 # Extract sample names as a comma-delimited list
-samplelist=$(cut -d$'\t' -f2 $pheno_file | tr '\n' ',')
-samplelist="${samplelist%,}"
+awk '{print $2}' $pheno_file > $sample_list
 # Subset the VCF file.
-bcftools view -s $samplelist $vcf > $subsetted_VCF
+bcftools view -S $sample_list $vcf > $subsetted_VCF
 if [ $? -eq 0 ] ; then echo -n "done." ; fi
 
 # Create PLINK file
@@ -143,6 +143,7 @@ if [ $? -eq 0 ] ; then echo -n "done." ; fi
 
 echo "Removing temporary files."
 rm $subsetted_VCF 
+rm $sample_list
 rm ${plink_output}.bim
 rm ${plink_output}.bed
 rm ${plink_output}.fam

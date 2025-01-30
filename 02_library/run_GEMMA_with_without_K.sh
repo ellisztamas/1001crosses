@@ -127,7 +127,7 @@ if [ $? -eq 0 ] ; then echo -n "done." ; fi
 
 # Create PLINK file
 echo "Creating the .bed .fam and .bim files, required for GWAS..."
-plink --vcf $subsetted_VCF --pheno $pheno_file --make-bed --out $plink_output
+plink2 --vcf $subsetted_VCF --pheno $pheno_file --make-bed --out $plink_output
 if [ $? -eq 0 ] ; then echo -n "done." ; fi
 
 # Create relatedness matrix
