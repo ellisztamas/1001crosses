@@ -23,7 +23,10 @@ library('tidyverse')
 
 files_by_day <- c(
   Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*2024053134631.csv"),
-  Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*613.csv")
+  Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*sun*613.csv"),
+  Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*655.csv"),
+  Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*502.csv"),
+  Sys.glob("01_data/05_phenotype_expt/flowering_time_raw_data/*028.csv")
 )
 ft10_AMM <- vector('list', length(files_by_day))
 
@@ -47,8 +50,10 @@ for(d in 1:length(files_by_day)){
     date = date,
     user = "Almudena Molla Morales",
     flowers_tomorrow = FALSE,
-    flowers_yesterday = FALSE,
-    comment = NA
+    flowered_yesterday = FALSE,
+    comment = NA,
+    did_not_germinate = FALSE,
+    did_not_flower = FALSE
   )
 }
 
