@@ -21,7 +21,7 @@ library(lme4)
 source("03_processing/04_pieters_VCF/04_align_original_corrected_sample_names.R")
 
 # Import size data for each seed separately
-seed_size_F9 <- read_delim("01_data/05_phenotype_expt/raw_data_seed_size_F9.csv", delim = ";")
+seed_size_F9 <- read_delim("01_data/06_external_seed_size/raw_data_seed_size_F9.csv", delim = ";")
 # Tidy the plantID names up
 seed_size_F9 <- seed_size_F9 %>%
   rename(genotype = `Pick description`) %>%

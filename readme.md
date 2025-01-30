@@ -117,12 +117,17 @@ necessary. This can be done easily and only once by modifying `setup.sh`.
 An environment file `environment.yml` is provided to handle (most) dependencies for running the scripts.
 This does not include packages for R, as these do not seem to play well with conda/mamba.
 
-I have used `micromamba` to manage dependencies, but conda would also work.
-Assuming you have micromamba installed, install the environment with 
+I have used `mamba` to install the environment because conda could not resolve
+the dependencies.
+Assuming you have mamba installed, install the environment with 
 ```
-micromamba env create -f environment.yml
+mamba env create -f environment.yml
 ```
 
+Load the environment as usual with 
+```
+conda activate 1001crosses
+```
 In the scripts in this repo this environment is loaded by `source setup.sh` 
 which you will see at the top of most scripts.
 
@@ -133,13 +138,13 @@ This project uses R 4.2.1 and the tidyverse suite of packages.
 ## Author information
 
 * Data collection:
-    * Crosses by Fernando Rabanal and multipe assistants.
+    * Crosses by Fernando Rabanal, Polina Novikova, Viktoria Nizhynska, Pamela Korte and Viktor Voronin.
     * Maintenance of subsequent generations, phenotyping and tissue collection by Joanna Gunis.
     * Wet lab work by Viktoria Nyzhynska
 * Analyses run by Tom Ellis based on previous work by Fernando Rabanal and Pieter Clauw.
 * Principle investigator: Magnus Nordborg
 
-## Acknoweldgements
+## Acknowledgements
 
 We thank members of the Nordborg group over many years for constructive feedback about the project.
 
@@ -147,4 +152,5 @@ This research was funded in whole or in part by the Austrian Science Fund (FWF) 
 
 ## License
 
-Creative Commons Attribution 4.0 International
+Data and analyses are released under the Creative Commons Attribution 4.0 International license.
+See LICENSE.

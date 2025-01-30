@@ -3,7 +3,7 @@ title: "Validation of the ancestry of F8 genotypes"
 author: "Tom Ellis"
 date: "2024-09-17"
 output:
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     toc: true
     toc_float: true
     toc_collapsed: true

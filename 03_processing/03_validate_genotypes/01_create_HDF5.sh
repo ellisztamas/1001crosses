@@ -31,6 +31,8 @@ source setup.sh
 # VCF files for the parents and F8s
 parental_vcf=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
 progeny_vcf=03_processing/02_original_sample_sheet/output/F8_snp_matrix.vcf.gz
+# VCF file for the extended RegMap set
+regmap_vcf=01_data/03_parental_genotypes/Arabidopsis_2029_Maf001_Filter80.vcf.gz
 
 # Annotated positions of genes.
 genes_gff=01_data/01_reference_genome/TAIR10_GFF3_genes.gff
@@ -56,6 +58,7 @@ subset_progeny=$outdir/progeny_only_genic_SNPs_mac160.vcf.gz
 parents_hdf5=$outdir/parents_only_genic_SNPs_mac160.hdf5
 progeny_hdf5=$outdir/progeny_only_genic_SNPs_mac160.hdf5
 
+
 # === Script === #
 
 # Prepare text files needed to subset SNPs
@@ -78,14 +81,14 @@ bcftools view \
     -R $intersect_snps \
     -oZ -o $subset_parents \
     $parental_vcf
-tabix $subset_parents
+tabix -f $subset_parents
 
 echo "Subsetting F8s"
 bcftools view \
     -R $intersect_snps \
     -oZ -o $subset_progeny \
     $progeny_vcf
-tabix $subset_progeny
+tabix -f $subset_progeny
 
 # Convert the VCF files to HDF5.
 echo "Converting parental VCF to HDF5."

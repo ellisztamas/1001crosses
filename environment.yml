@@ -5,12 +5,14 @@ channels:
   - defaults
 dependencies:
   - bcftools
+  - bedtools
   - bwa
-  - conda-forge::ncurses
   - cutadapt
   - fastqc
   - gemma
+  - ipykernel
   - multiqc
+  - conda-forge::ncurses
   - numpy
   - pandas>=2.2.2
   - parallel
@@ -21,6 +23,9 @@ dependencies:
   - python>3.10
   - r-base
   - r-ggplot2
+  - conda-forge::r-htmlwidgets
+  - conda-forge::r-manhattanly
+  - conda-forge::r-optparse
   - r-vctrs=0.5.1
   - samtools
   - tabix
@@ -28,4 +33,6 @@ dependencies:
   - vcftools
   - pip:
     - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
+    - ibdpainting
     - scikit-allel
+    - limix_plot
