@@ -16,6 +16,9 @@ and 427 F9 lines.
     A list of seed stocks processed by Tal Dahan in February 2024 to be measured
     for seed size. The seeds are the F9 progeny of the F8 plants that were
     genotyped.
+- F10_seed_size_cataloge.csv
+    A list of all the seed packets collected from F9 plants grown in the
+    phenotyping experiment.
 - format_ft10_from_AMM.R
     Almudena kept track of flowering while I was away, but she used a different
     app to log data. This file formats those data.

@@ -139,7 +139,7 @@ gemma -bfile $plink_output \
 if [ $? -eq 0 ] ; then echo -n "Finished calculating the relatedness matrix." ; fi
 
 # Run GEMMA
-echo " Running GEMMA using the Plink and relatedness matrix..."
+echo " Running GEMMA using the Plink relatedness matrix..."
 gemma \
     -bfile $plink_output \
     -k ${tmp_dir}/${pheno_name}_K_matrix.cXX.txt \

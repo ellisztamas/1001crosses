@@ -51,10 +51,13 @@ raw_rosette_size <- raw_rosette_size %>%
 # replicate1 or 2
 raw_rosette_size <- raw_rosette_size %>%
   mutate(
-    cohort = generation,
-    cohort = ifelse(grepl("rep1", genotype), "rep1", generation),
-    cohort = ifelse(grepl("rep2", genotype), "rep2", generation)
+    cohort = case_when(
+      generation == "parent" ~ "parent",
+      grepl("rep1", genotype) ~ "rep1",
+      grepl("rep2", genotype) ~ "rep2"
+    )
   )
+
 
 # Remove 5835, because Pieter thinks this was confused with 6180
 # Also 1435, which Pieter think was confused with 7383

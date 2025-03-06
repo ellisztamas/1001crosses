@@ -14,7 +14,7 @@ dependencies:
   - multiqc
   - conda-forge::ncurses
   - numpy
-  - pandas>=2.2.2
+  - pandas==2.2.2
   - parallel
   - picard
   - pip
@@ -28,6 +28,7 @@ dependencies:
   - conda-forge::r-optparse
   - r-vctrs=0.5.1
   - samtools
+  - scipy
   - tabix
   - trim-galore
   - vcftools
@@ -35,4 +36,4 @@ dependencies:
     - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
     - ibdpainting
     - scikit-allel
-    - limix_plot
+    - limix-plot

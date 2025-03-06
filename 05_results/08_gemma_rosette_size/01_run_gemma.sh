@@ -82,4 +82,12 @@ echo "Output directory: ${outdir}\n\n"
   --input $outdir/no_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
   --outDir $outdir/no_K
 
+# Manhattan plots as an interactive HTML, which are slow
+02_library/interactive_manhattan_plot.R \
+    --input $outdir/with_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+    --threshold 1
+02_library/interactive_manhattan_plot.R \
+    --input $outdir/no_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+    --threshold 1
+
 date

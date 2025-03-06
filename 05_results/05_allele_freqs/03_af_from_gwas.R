@@ -10,9 +10,11 @@ maf.plt <- gwas.result %>%
   ggplot(aes(x = af.parent, y = af.cross)) +
   geom_point(size = 0.1) +
   theme_classic() +
-  labs(x = 'parents',
-       y = 'crosses',
-       title = 'minor allele frequencies') +
+  labs(
+    x = 'parents',
+    y = 'crosses',
+    title = 'minor allele frequencies'
+    ) +
   geom_abline(intercept = 0, slope = 1, col = 'red')
 
 ggsave(plot = maf.plt,
