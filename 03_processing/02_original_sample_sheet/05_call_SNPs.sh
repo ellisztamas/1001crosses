@@ -23,7 +23,6 @@
 #SBATCH --time=1-00:00:00
 #SBATCH --array=1-5
 
-set -e
 # Set working directory and load conda environment
 source setup.sh
 
@@ -41,7 +40,7 @@ chr=Chr${SLURM_ARRAY_TASK_ID}
 # === Output files ===
 
 # Output directory
-outdir=$workdir/07_snp_calls
+outdir=$workdir/05_snp_calls
 mkdir -p $outdir
 # file with location of bamfiles (one per line)
 bam_list=${outdir}/bam_list.txt
@@ -63,10 +62,6 @@ tabix -s1 -b2 -e2 $targets_file
 # Get genotype likelihoods, and use them to call SNPs
 echo "Calling the SNPs."
 bcftools mpileup --min-MQ 20 -a FORMAT/DP,FORMAT/AD --skip-indels -f $genome -r $chr -b $bam_list -Ou | \
-bcftools call -m --constrain alleles --targets-file $targets_file --variants-only -Oz --output $outfile
+    bcftools call -m --constrain alleles --targets-file $targets_file --variants-only -Ou | \
+    bcftools norm -m -both -f $genome -Oz --output $outfile
 tabix $outfile
-
-if [ $? -eq 0 ] 
-then
-    echo "Script completed with exit code 0."
-fi

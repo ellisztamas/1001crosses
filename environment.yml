@@ -29,6 +29,7 @@ dependencies:
   - r-vctrs=0.5.1
   - samtools
   - scipy
+  - snakemake>=8.0.0
   - tabix
   - trim-galore
   - vcftools

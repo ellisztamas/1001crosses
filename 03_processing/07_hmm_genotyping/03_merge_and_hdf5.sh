@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Merge phased, imputed VCF files for individual F8 lines.
-# Convert the merged VCF file to HDF5 format.
+# Create an HDF5 file using only genic SNPs that can be used for validation.
 #
 # Tom Ellis, 20th March 2024
 
