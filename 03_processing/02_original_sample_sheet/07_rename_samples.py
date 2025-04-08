@@ -22,7 +22,7 @@ plate_info = pd.read_csv(
     )
 plate_info = plate_info.loc[~plate_info['name'].isna()]
 # Single barcode entry. Notice the order is swapped.
-plate_info['barcode'] = plate_info['barcode2'] + plate_info['barcode1'] 
+plate_info['barcode'] = plate_info['index1'] + plate_info['index2'] 
 
 # Text file with sample names to be replaced.
 old_header = pd.read_csv(
