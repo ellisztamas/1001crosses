@@ -59,4 +59,5 @@ ibdpainting \
     --sample_name $sample_name \
     --expected_match $expected_parents \
     --no-interactive \
+    --keep_ibd_table \
     --outdir $outdir

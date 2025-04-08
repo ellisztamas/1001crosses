@@ -15,7 +15,7 @@
 #SBATCH --job-name=02_beagle
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
-#SBATCH --mem=3GB
+#SBATCH --mem=5GB
 #SBATCH --qos=short
 #SBATCH --time=2:00:00
 #SBATCH --array=1-328
@@ -102,5 +102,6 @@ java -jar $beagle \
     ped=$ped_file \
     ref=${cross_parents_phased}.vcf.gz \
     impute=true \
+    impute-its=10 \
     out=$single_progeny_phased 
 tabix ${single_progeny_phased}.vcf.gz
