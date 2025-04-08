@@ -22,6 +22,8 @@ source setup.sh
 # VCF file for the extended RegMap set
 regmap_vcf=01_data/03_parental_genotypes/Arabidopsis_2029_Maf001_Filter80.vcf.gz
 
+# Table of SNP positions in genes
+intersect_snps=03_processing/03_validate_genotypes/output/snps_in_genes.tsv.gz
 
 # === Output === #
 
@@ -34,9 +36,11 @@ chr_names=$outdir/chr_names.txt
 regmap_bgzipped=$outdir/regmap_bgzipped.vcf.gz
 # VCF with corrected filenames
 vcf_with_Chr=$outdir/regmap_set.vcf.gz
+# VCF file with genic SNPs only
+subset_vcf=$outdir/regmap_set_subset.vcf.gz
 
 # HDF5 version of the VCF
-regmap_hdf5=$outdir/regmap_set.hdf5
+regmap_hdf5=03_processing/03_validate_genotypes/output/regmap_set.hdf5
 
 
 # === Main === #
@@ -57,9 +61,17 @@ cat > $chr_names << EOL
 EOL
 
 echo "Renaming chromosomes."
-bcftools annotate --rename-chrs $chr_names $regmap_bgzipped | \
-    bgzip -c > $vcf_with_Chr
+bcftools annotate --rename-chrs $chr_names $regmap_bgzipped | 
+bgzip -c > $vcf_with_Chr
 tabix $vcf_with_Chr
 
+echo "Subsetting the VCF file to include only SNPs in genes."
+bcftools view \
+    -R $intersect_snps \
+    -oZ \
+    -o $subset_vcf \
+    $vcf_with_Chr
+tabix $subset_vcf
+
 echo "Converting RegMap VCF to HDF5."
-02_library/vcf_to_HDF5.py --input $vcf_with_Chr --output $regmap_hdf5
+02_library/vcf_to_HDF5.py --input $subset_vcf --output $regmap_hdf5
