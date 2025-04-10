@@ -33,7 +33,7 @@ reference_hdf5=03_processing/03_validate_genotypes/output/parents_only_genic_SNP
 
 # === Output ===
 
-outdir=03_processing/07_hmm_genotyping/output/ibdpainting
+outdir=03_processing/05_imputation//output/ibdpainting
 mkdir -p $outdir
 
 

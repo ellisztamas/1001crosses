@@ -56,7 +56,7 @@ bcftools merge \
     -o $merged_vcf
 tabix $merged_vcf
 # Copy the merged VCF file to the project directory
-cp $merged_vcf 03_processing/07_hmm_genotyping/output/
+cp $merged_vcf 03_processing/05_imputation//output/
 
 
 # Files for validation

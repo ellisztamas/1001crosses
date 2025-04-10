@@ -42,7 +42,7 @@ scratchdir=$workdir/08_resequencing/06_ibdpainting
 mkdir -p $scratchdir
 
 # Project directory to store IBDpainting results
-projdir=03_processing/08_resequencing/output/ibdpainting
+projdir=03_processing/04_resequencing/output/ibdpainting
 mkdir -p $projdir
 
 # VCF file for a single sample containing genic SNPs only

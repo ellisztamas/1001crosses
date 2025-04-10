@@ -22,7 +22,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # Sample sheet giving samples to analyse and the candidate parents to highlight.
-sample_sheet=03_processing/08_resequencing/second_candidates.tsv
+sample_sheet=03_processing/04_resequencing/second_candidates.tsv
 
 # Directory containing VCF files for each sample with genic SNPs only.
 # This is created by the previous script.
@@ -34,7 +34,7 @@ ref_panel=03_processing/03_validate_genotypes/output/regmap_set.hdf5
 
 # === Output ===
 
-projdir=03_processing/08_resequencing/output/ibdpainting_second_candidates
+projdir=03_processing/04_resequencing/output/ibdpainting_second_candidates
 mkdir -p $projdir
 
 

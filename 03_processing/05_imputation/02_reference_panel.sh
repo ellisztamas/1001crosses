@@ -37,7 +37,7 @@ g1163=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.
 # Regmap panel, with probably-correct genotypes for 1435 and 5358
 regmap=03_processing/01_parental_SNP_matrix/output/RegMap_with_ChrNames.vcf.gz
 # Resequenced lines, including 1137 and 1074
-resequenced=03_processing/08_resequencing/output/resequenced.vcf.gz
+resequenced=03_processing/04_resequencing/output/resequenced.vcf.gz
 
 # .ped file giving lines to be resequenced
 sample_sheet=$workdir/07_hmm_genotyping/01_sample_sheet/beagle_sample_sheet.ped

@@ -38,3 +38,4 @@ dependencies:
     - ibdpainting
     - scikit-allel
     - limix-plot
+    - methlab

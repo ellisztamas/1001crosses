@@ -29,7 +29,7 @@ outdir=$workdir/08_resequencing/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # Local project directory to copy the multiqc report
-projdir=03_processing/08_resequencing/output
+projdir=03_processing/04_resequencing/output
 mkdir -p $projdir
 
 

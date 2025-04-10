@@ -21,7 +21,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # Sample sheet giving BioSample,LibraryName,Run,refGenome,refPath,BioProject,fastq1,fastq2
-sample_sheet=03_processing/08_resequencing/output/sample_sheet.csv
+sample_sheet=03_processing/04_resequencing/output/sample_sheet.csv
 
 
 # === Output ===
@@ -31,7 +31,7 @@ outdir=$workdir/08_resequencing/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # FastQC output directory
-fastqc_dir=03_processing/08_resequencing/output/multiqc/
+fastqc_dir=03_processing/04_resequencing/output/multiqc/
 mkdir -p $fastqc_dir
 
 # === Main ===
