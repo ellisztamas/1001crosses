@@ -3,7 +3,7 @@
 # Merge phased, imputed VCF files for individual F8 lines.
 # Create an HDF5 file using only genic SNPs that can be used for validation.
 #
-# Tom Ellis, 20th March 2024
+# Tom Ellis, 10th April 2025
 
 # SLURM
 #SBATCH --job-name=03_merge_and_hdf5
@@ -19,10 +19,11 @@ source setup.sh
 # === Input ===
 
 # Directory with phased VCF files for each F8 separately
-indir=$workdir/07_hmm_genotyping/02_beagle
+indir=$workdir/07_hmm_genotyping/03_beagle
 
 # VCF file for the parents with common genic SNPs only previously used for validation
-reference_panel=03_processing/03_validate_genotypes/output/parents_only_genic_SNPs_mac160.vcf.gz
+genic_SNPs=03_processing/03_validate_genotypes/output/snps_in_genes.tsv.gz
+# reference_panel=03_processing/03_validate_genotypes/output/parents_only_genic_SNPs_mac160.vcf.gz
 
 # === Output ===
 
@@ -45,7 +46,7 @@ validation_hdf5=$outdir/F8_validation.hdf5
 
 # Text file listing VCF files to merge
 ls $indir/*_rep?_phased.vcf.gz > $vcf_to_merge
-echo "Found $(cat tmp | wc -l) individual VCF files to merge."
+echo "Found $(cat $vcf_to_merge | wc -l) individual VCF files to merge."
 
 
 echo "Merging VCF files"
@@ -54,11 +55,14 @@ bcftools merge \
     -O z \
     -o $merged_vcf
 tabix $merged_vcf
+# Copy the merged VCF file to the project directory
+cp $merged_vcf 03_processing/07_hmm_genotyping/output/
 
 
+# Files for validation
 echo "Subsetting the VCF to include only genic SNPs for validation."
 bcftools view \
-    -R $reference_panel \
+    -R $genic_SNPs \
     -Oz \
     -o $validation_vcf \
     $merged_vcf

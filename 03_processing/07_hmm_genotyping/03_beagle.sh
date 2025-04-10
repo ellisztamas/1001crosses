@@ -9,41 +9,47 @@
 # Then create a VCF file for the F8 line only and impute the missing genotypes
 # using Beagle.
 #
-# Tom Ellis, 18th March 2024
+# Tom Ellis, 9th April 2025
 
 # SLURM
-#SBATCH --job-name=02_beagle
+#SBATCH --job-name=03_beagle
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
 #SBATCH --mem=5GB
 #SBATCH --qos=short
 #SBATCH --time=2:00:00
-#SBATCH --array=1-328
+#SBATCH --array=1-411
 
 # Set working directory and load the conda environment
 source setup.sh
+
 
 # === Input ===
 
 i=${SLURM_ARRAY_TASK_ID}
 
 # Table of valid F8 genotypes and their parents in .ped format
-sample_list=03_processing/07_hmm_genotyping/output/sample_sheet.ped
+beagle_sample_sheet=$workdir/07_hmm_genotyping/01_sample_sheet/beagle_sample_sheet.ped
 
 # Name of the F8 genotype to process
-progeny_name=$(awk -F'\t' -v row=$i 'NR==row {print $2}' $sample_list)
+progeny_name=$(awk -F'\t' -v row=$i 'NR==row {print $2}' $beagle_sample_sheet)
 # Names of the parents
-parent1_name=$(awk -F'\t' -v row=$i 'NR==row {print $3}' $sample_list)
-parent2_name=$(awk -F'\t' -v row=$i 'NR==row {print $4}' $sample_list)
+parent1_name=$(awk -F'\t' -v row=$i 'NR==row {print $3}' $beagle_sample_sheet)
+parent2_name=$(awk -F'\t' -v row=$i 'NR==row {print $4}' $beagle_sample_sheet)
+# Value indicating whether the genotype is from the resequenced or low-coverage datasets
+offspring_panel_name=$(awk -F'\t' -v row=$i 'NR==row {print $1}' $beagle_sample_sheet )
 
 # VCF file containing all the SNPs from the published SNP matrix
-all_parents=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
-# VCF file for the progeny with corrected sample names
-# This is created by 03_processing/03_validate_genotypes/08_correct_split_VCFs.sh
-all_progeny=$workdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
+reference_panel=$workdir/07_hmm_genotyping/02_reference_panel/reference_panel.vcf.gz
+# VCF files for the progeny
+# There are two, and the sample sheet has a column indicating which to use
+resequenced_vcf=$workdir/08_resequencing/08_merge_VCF/resequenced.vcf.gz
+low_coverage_vcf=$workdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
 
 # Path to the binary file for Beagle
 beagle=02_library/beagle.r1399.jar
+
+
 
 # === Output ===
 
@@ -62,10 +68,19 @@ cross_parents_phased=$outdir/${progeny_name}_parents_phased
 single_progeny_unphased=$outdir/${progeny_name}_unphased.vcf.gz
 single_progeny_phased=$outdir/${progeny_name}_phased
 
+
+
 # === Main ===
 
-echo "Get the row of the pedigree file."
-awk -F'\t' -v row=$i 'NR==row' $sample_list > $ped_file
+echo "Processing progeny ${progeny_name} with parents ${parent1_name} and ${parent2_name}"
+
+if [[ "$offspring_panel_name" == "resequenced" ]]; then 
+    echo "Taking offspring data from the resequenced data set."
+    offspring_panel=$resequenced_vcf
+elif [[ "$offspring_panel_name" == "lowcoverage" ]]; then
+    echo "Taking offspring data from the low-coverage data set."
+    offspring_panel=$low_coverage_vcf
+fi
 
 
 
@@ -75,15 +90,14 @@ bcftools view \
     -s $parent1_name,$parent2_name \
     --output-type z \
     --output-file $cross_parents_unphased \
-    $all_parents
+    $reference_panel
 tabix $cross_parents_unphased
 
 echo "Phasing the parents"
 java -jar $beagle \
-    gl=$cross_parents_unphased \
+    gt=$cross_parents_unphased \
     out=$cross_parents_phased 
 tabix ${cross_parents_phased}.vcf.gz
-
 
 
 
@@ -93,12 +107,15 @@ bcftools view \
     -s $progeny_name \
     --output-type z \
     --output-file $single_progeny_unphased \
-    $all_progeny
+    $offspring_panel
 tabix $single_progeny_unphased
+
+echo "Get the row of the pedigree file for imputation."
+awk -F'\t' -v row=$i 'NR==row' $beagle_sample_sheet > $ped_file
 
 echo "Imputing the progeny."
 java -jar $beagle \
-    gl=$single_progeny_unphased \
+    gt=$single_progeny_unphased \
     ped=$ped_file \
     ref=${cross_parents_phased}.vcf.gz \
     impute=true \
