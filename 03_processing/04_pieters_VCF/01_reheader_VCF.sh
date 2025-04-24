@@ -44,7 +44,7 @@ input_vcf=../crosses_continued/004.F8/001.genotyping/003.results/1163g.179kB.pri
 
 # === Output files ===
 
-outdir=$workdir/04_pieters_VCF/01_reheader_VCF
+outdir=$scratchdir/04_pieters_VCF/01_reheader_VCF
 mkdir -p $outdir
 
 # Filename for the old headers

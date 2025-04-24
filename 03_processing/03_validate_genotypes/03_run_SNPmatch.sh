@@ -28,7 +28,7 @@
 
 
 # Set working directory and load SNPmatch
-workdir=/scratch-cbe/users/$(whoami)/crosses
+scratchdir=/scratch-cbe/users/$(whoami)/crosses
 ml snpmatch/3.0.1-foss-2018b-python-2.7.15
 ml bcftools/1.9-foss-2018b
 
@@ -36,9 +36,9 @@ ml bcftools/1.9-foss-2018b
 i=$SLURM_ARRAY_TASK_ID
 
 # Directory with the SNPmatch database files
-snpmatch_db=$workdir/03_validate_genotypes/02_SNPmatch_database
+snpmatch_db=$scratchdir/03_validate_genotypes/02_SNPmatch_database
 # VCF files with SNP calls for each sample
-progeny_vcf=$workdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160.vcf.gz
+progeny_vcf=$scratchdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160.vcf.gz
 
 # Sample sheet linking sequencing ID, and sample ID
 sample_sheet=01_data/02_F8_unaligned_bams/sequencing_plates_original.csv 
@@ -46,7 +46,7 @@ sample_sheet=01_data/02_F8_unaligned_bams/sequencing_plates_original.csv
 # === Output === 
 
 # Directory for the output
-scratchdir=$workdir/03_validate_genotypes/03_run_SNPmatch/$sample_name
+scratchdir=$scratchdir/03_validate_genotypes/03_run_SNPmatch/$sample_name
 mkdir -p $scratchdir
 
 # === Script === #

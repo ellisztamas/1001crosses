@@ -26,9 +26,9 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # HDF5 file for the 1163 candidate parents
-regmap_hdf5=$workdir/03_validate_genotypes/09_regmap_data/regmap_set.hdf5
+regmap_hdf5=$scratchdir/03_validate_genotypes/09_regmap_data/regmap_set.hdf5
 # HDF5 with genotypes of the F8s
-progeny_hdf5=$workdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160.hdf5
+progeny_hdf5=$scratchdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160.hdf5
 
 # Genotype validation results
 ibdpainting_results=03_processing/03_validate_genotypes/output/ibdpainting_results.csv

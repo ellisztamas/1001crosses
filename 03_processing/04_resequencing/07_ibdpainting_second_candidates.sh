@@ -26,7 +26,7 @@ sample_sheet=03_processing/04_resequencing/second_candidates.tsv
 
 # Directory containing VCF files for each sample with genic SNPs only.
 # This is created by the previous script.
-indir=$workdir/08_resequencing/06_ibdpainting/
+indir=$scratchdir/04_resequencing/06_ibdpainting/
 
 # VCF files for the parents and F8s
 ref_panel=03_processing/03_validate_genotypes/output/regmap_set.hdf5

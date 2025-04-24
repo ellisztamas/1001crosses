@@ -29,13 +29,13 @@ source ./setup.sh
 
 # Path to the VCF file for the F8s created by Pieter
 input_vcf=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
-parents_to_keep=$workdir/04_pieters_VCF/01_reheader_VCF/parents_to_keep.txt
+parents_to_keep=$scratchdir/04_pieters_VCF/01_reheader_VCF/parents_to_keep.txt
 # List of SNPs positions
-variable_positions=$workdir/04_pieters_VCF/01_reheader_VCF/variable_positions.tsv.gz
+variable_positions=$scratchdir/04_pieters_VCF/01_reheader_VCF/variable_positions.tsv.gz
 
 # === Output files ===
 
-outdir=$workdir/04_pieters_VCF/03_subset_parental_VCF
+outdir=$scratchdir/04_pieters_VCF/03_subset_parental_VCF
 mkdir -p $outdir
 
 vcf_215_accessions=$outdir/vcf_215_accessions.vcf.gz

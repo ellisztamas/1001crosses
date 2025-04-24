@@ -25,9 +25,9 @@
 # Set working directory and load conda environment
 source setup.sh
 # Where the unzipped bam files are
-indir=$workdir/01_unzipped_fastq
+indir=$scratchdir/01_unzipped_fastq
 # Output file for trimmed files
-outdir=$workdir/02_trimmed_fastq
+outdir=$scratchdir/02_trimmed_fastq
 mkdir -p $outdir
 # Output directory for fastqc results on the trimmed files
 qcdir=$outdir/qc

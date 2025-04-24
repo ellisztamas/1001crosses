@@ -22,7 +22,7 @@ source setup.sh
 # === Input data === #
 
 # Directory containing SNP calls for each chromosome separately.
-indir=$workdir/07_snp_calls
+indir=$scratchdir/07_snp_calls
 # VCF files for each chromosome separately
 VCF_chr1=$indir/F8_snp_matrix_Chr1.vcf.gz
 VCF_chr2=$indir/F8_snp_matrix_Chr2.vcf.gz
@@ -33,7 +33,7 @@ VCF_chr5=$indir/F8_snp_matrix_Chr5.vcf.gz
 # === Define outputs === #
 
 # Directory for the output files
-outdir=$workdir/08_merge_VCF
+outdir=$scratchdir/08_merge_VCF
 mkdir -p $outdir
 # File name for the concatenated SNP matrix
 vcf_with_full_paths=$outdir/F8_snp_matrix_full_paths.vcf.gz

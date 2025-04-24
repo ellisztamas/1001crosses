@@ -30,7 +30,7 @@ indir=01_data/02_F8_unaligned_bams
 # === Output === #
 
 # Output directories
-outdir=$workdir/01_unzipped_fastq
+outdir=$scratchdir/01_unzipped_fastq
 mkdir -p $outdir
 
 # Local project directory to copy the multiqc report

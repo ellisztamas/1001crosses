@@ -25,10 +25,10 @@
 source setup.sh
 
 # Location of unmerged fastq files
-indir=${workdir}/02_trimmed_fastq
+indir=${scratchdir}/02_trimmed_fastq
 
 # Target directory for merged fastq files
-outdir=${workdir}/03_merged_fastq
+outdir=${scratchdir}/03_merged_fastq
 mkdir -p $outdir
 
 files_to_merge=($(find $indir -type f -name '*_L003_*.fq.gz'))

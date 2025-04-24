@@ -18,7 +18,7 @@
 #SBATCH --mem=10GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
-#SBATCH --array=0-2
+#SBATCH --array=0-1
 
 date 
 
@@ -28,13 +28,14 @@ source setup.sh
 
 i=$SLURM_ARRAY_TASK_ID
 
-# Path to a VCF files with dubious samples removed
-rep1=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
-rep2=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
-# VCF file for the parents
-parents=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
+# VCF files for parents and F8s
+parents=03_processing/05_imputation/output/parental_lines.vcf.gz
+progeny=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
 # Make a Bash array of the three VCF files
-vcf_files=($rep1 $rep2 $parents)
+vcf_files=($parents $progeny)
+# File to use in this job
+infile=${vcf_files[$i]}
+
 
 # === Output === 
 

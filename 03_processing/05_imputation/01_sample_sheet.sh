@@ -34,7 +34,7 @@ lowcoverage_results=03_processing/03_validate_genotypes/output/ibdpainting_resul
 
 # === Output ===
 
-outdir=$workdir/07_hmm_genotyping/01_sample_sheet
+outdir=$scratchdir/05_imputation/01_sample_sheet
 mkdir -p $outdir
 
 # Ped file for resequenced lines
@@ -88,4 +88,4 @@ cat $resequenced_ped $lowcoverage_ped > $beagle_sample_sheet
 # Prints to stout
 awk -F'\t' '{count[$2]++} END {for (item in count) print item "\t" count[item]}' $beagle_sample_sheet
 
-cp $beagle_sample_sheet 03_processing/05_imputation//output/
+cp $beagle_sample_sheet 03_processing/05_imputation/output/

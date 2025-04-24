@@ -34,9 +34,9 @@ source setup.sh
 # === Input ===
 
 # Directory containing appropriately merged fastq files
-indir=$workdir/03_merged_fastq
+indir=$scratchdir/03_merged_fastq
 # Target directory for aligned reads
-outdir=$workdir/04_aligned_bam
+outdir=$scratchdir/04_aligned_bam
 mkdir -p $outdir
 
 # Location of the reference genome to map to.

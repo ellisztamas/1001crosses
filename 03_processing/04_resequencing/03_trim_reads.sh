@@ -27,7 +27,7 @@ sample_sheet=03_processing/04_resequencing/output/sample_sheet.csv
 # === Output ===
 
 # Output directory
-outdir=$workdir/08_resequencing/${SLURM_JOB_NAME}
+outdir=$scratchdir/04_resequencing/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # FastQC output directory

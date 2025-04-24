@@ -40,7 +40,7 @@ ibdresults=03_processing/03_validate_genotypes/output/ibdpainting_results.csv
 # === Output === # 
 
 # Directory for the output
-outdir=$workdir/03_validate_genotypes/08_correct_split_vcf
+outdir=$scratchdir/03_validate_genotypes/08_correct_split_vcf
 mkdir -p $outdir
 
 # Text files for subsetting VCF files (created by the 07_new_sample_names.R)

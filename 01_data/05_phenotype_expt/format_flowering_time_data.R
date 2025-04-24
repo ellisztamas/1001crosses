@@ -61,18 +61,18 @@ flowering_time <-  flowering_time %>%
 
 flowering_time <- flowering_time %>%
   filter(
-    qr != "pot with no tag from tray 9", # Remove row with a string for a code.
-    key != 173 # This plant is given twice. I think this entry is wrong, bc the days to flower is much bigger than the other reps
+    qr != "pot with no tag from tray 9" # Remove row with a string for a code.
+    # key == 173 # This plant is given twice. I think this entry is wrong, bc the days to flower is much bigger than the other reps
   ) %>%
   # Three rows have one underscore too many in their code.
   mutate(qr = str_replace_all(qr, "_rep", " rep")  ) %>%
   # Split the code
   separate(qr, into=c("id", "position", "genotype", "generation"), sep = "_") %>%
-  separate(position, into=c("cohort", 'tray', 'position'), remove=TRUE) %>%
+  separate(position, into=c("replicate", 'tray', 'position'), remove=TRUE) %>%
   mutate(
     tray = as.integer(tray),
-    # Column to separate replicate groups of F9s and the parents
-    pop = case_when(
+    # Column to separate cohort groups of F9s and the parents
+    cohort = case_when(
       str_detect(genotype, "rep1") ~ "rep1",
       str_detect(genotype, "rep2") ~ "rep2",
       generation == "parent" ~ "parents"
@@ -103,24 +103,19 @@ flowering_time <- flowering_time %>%
     ! did_not_germinate, ! did_not_flower
   ) %>%
   select(
-    id, cohort, tray, position, genotype, generation, pop, days_to_flower
+    id, replicate, tray, position, genotype, generation, cohort, days_to_flower
   )
 
 flowering_time <- flowering_time %>%
-  # Remove one accession, because I am not certain it was the correct seed bag
-  # after validating
-  filter(
-    ! grepl('6012x997 rep1', genotype)
-  ) %>%
   # Swap some names that I think were mixed up after validating genotypes.
   mutate(
-    genotype = case_when(
-      genotype == "175x6913 rep1"  ~ "8307x9481 rep1",
-      genotype == "175x6913 rep2"  ~ "8307x9481 rep2",
-      genotype == "8307x9481 rep1" ~ "175x6913 rep1",
-      genotype == "8307x9481 rep2" ~ "175x6913 rep2",
-      genotype == "9470x6107 rep1" ~ "9470x7002 rep1",
-      .default = genotype
-    ),
+    # genotype = case_when(
+    #   genotype == "175x6913 rep1"  ~ "8307x9481 rep1",
+    #   genotype == "175x6913 rep2"  ~ "8307x9481 rep2",
+    #   genotype == "8307x9481 rep1" ~ "175x6913 rep1",
+    #   genotype == "8307x9481 rep2" ~ "175x6913 rep2",
+    #   genotype == "9470x6107 rep1" ~ "9470x7002 rep1",
+    #   .default = genotype
+    # ),
     genotype = gsub(" ", "_", genotype)
   )

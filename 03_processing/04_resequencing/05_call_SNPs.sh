@@ -22,7 +22,7 @@ i=${SLURM_ARRAY_TASK_ID}
 # i=0
 
 # Directory containing aligned BAM files
-indir=$workdir/08_resequencing/04_align_reads
+indir=$scratchdir/04_resequencing/04_align_reads
 # Select one deduplicated bam file
 infile_array=($(find $indir -type f -name '*dedup.bam'))
 infile=${infile_array[$i]}
@@ -37,7 +37,7 @@ variable_sites=03_processing/01_parental_SNP_matrix/output/variable_sites.tsv.gz
 # === Output files ===
 
 # Output directory
-outdir=$workdir/08_resequencing/05_snp_calls
+outdir=$scratchdir/04_resequencing/05_snp_calls
 mkdir -p $outdir
 
 outfile=$outdir/$(basename $infile)

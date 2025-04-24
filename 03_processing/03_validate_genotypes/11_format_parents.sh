@@ -22,12 +22,12 @@ source setup.sh
 # === Input ===
 
 parents_in=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
-progeny_in=$workdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
+progeny_in=$scratchdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
 
 
 # === Output ===
 
-outdir=$workdir/03_validate_genotypes/11_format_parents
+outdir=$scratchdir/03_validate_genotypes/11_format_parents
 mkdir -p $outdir
 
 # Data to subset parents

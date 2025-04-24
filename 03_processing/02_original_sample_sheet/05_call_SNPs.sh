@@ -29,7 +29,7 @@ source setup.sh
 # === Input files ===
 
 # Directory containing aligned BAM files
-indir=$workdir/04_aligned_bam
+indir=$scratchdir/04_aligned_bam
 # Location of the reference genome to map to.
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
 # SNP matrix file
@@ -40,7 +40,7 @@ chr=Chr${SLURM_ARRAY_TASK_ID}
 # === Output files ===
 
 # Output directory
-outdir=$workdir/05_snp_calls
+outdir=$scratchdir/05_snp_calls
 mkdir -p $outdir
 # file with location of bamfiles (one per line)
 bam_list=${outdir}/bam_list.txt

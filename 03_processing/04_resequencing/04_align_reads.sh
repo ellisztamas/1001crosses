@@ -36,7 +36,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # Directory containing appropriately merged fastq files
-indir=$workdir/08_resequencing/03_trim_reads
+indir=$scratchdir/04_resequencing/03_trim_reads
 
 # Location of the reference genome to map to.
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
@@ -52,7 +52,7 @@ read2_fastq=${read2_fastq/val_1/val_2}
 # === Output ===
 
 # Target directory for aligned reads
-outdir=$workdir/08_resequencing/${SLURM_JOB_NAME}
+outdir=$scratchdir/04_resequencing/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # Name for the aligned bam file.

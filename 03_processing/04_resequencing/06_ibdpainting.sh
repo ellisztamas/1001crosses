@@ -24,7 +24,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # Input VCF file to be converted to HDF5 and validated
-indir=$workdir/08_resequencing/05_snp_calls/
+indir=$scratchdir/04_resequencing/05_snp_calls/
 infile_array=($(find $indir -type f -name '*vcf.gz'))
 infile=${infile_array[$i]}
 
@@ -38,7 +38,7 @@ ref_panel=03_processing/03_validate_genotypes/output/regmap_set.hdf5
 # === Output === #
 
 # Working directory on scratch-cbe for intermediate files
-scratchdir=$workdir/08_resequencing/06_ibdpainting
+scratchdir=$scratchdir/04_resequencing/06_ibdpainting
 mkdir -p $scratchdir
 
 # Project directory to store IBDpainting results

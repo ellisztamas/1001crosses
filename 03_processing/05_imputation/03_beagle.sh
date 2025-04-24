@@ -29,7 +29,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # Table of valid F8 genotypes and their parents in .ped format
-beagle_sample_sheet=$workdir/07_hmm_genotyping/01_sample_sheet/beagle_sample_sheet.ped
+beagle_sample_sheet=$scratchdir/05_imputation/01_sample_sheet/beagle_sample_sheet.ped
 
 # Name of the F8 genotype to process
 progeny_name=$(awk -F'\t' -v row=$i 'NR==row {print $2}' $beagle_sample_sheet)
@@ -40,11 +40,11 @@ parent2_name=$(awk -F'\t' -v row=$i 'NR==row {print $4}' $beagle_sample_sheet)
 offspring_panel_name=$(awk -F'\t' -v row=$i 'NR==row {print $1}' $beagle_sample_sheet )
 
 # VCF file containing all the SNPs from the published SNP matrix
-reference_panel=$workdir/07_hmm_genotyping/02_reference_panel/reference_panel.vcf.gz
+reference_panel=$scratchdir/05_imputation/02_reference_panel/parental_lines.vcf.gz
 # VCF files for the progeny
 # There are two, and the sample sheet has a column indicating which to use
-resequenced_vcf=$workdir/08_resequencing/08_merge_VCF/resequenced.vcf.gz
-low_coverage_vcf=$workdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
+resequenced_vcf=$scratchdir/04_resequencing/08_merge_VCF/resequenced.vcf.gz
+low_coverage_vcf=$scratchdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
 
 # Path to the binary file for Beagle
 beagle=02_library/beagle.r1399.jar
@@ -53,7 +53,7 @@ beagle=02_library/beagle.r1399.jar
 
 # === Output ===
 
-outdir=$workdir/07_hmm_genotyping/${SLURM_JOB_NAME}
+outdir=$scratchdir/05_imputation/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # VCF file with only a single F8 and its two parents

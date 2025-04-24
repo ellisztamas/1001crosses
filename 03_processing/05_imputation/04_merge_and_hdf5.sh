@@ -6,12 +6,12 @@
 # Tom Ellis, 10th April 2025
 
 # SLURM
-#SBATCH --job-name=03_merge_and_hdf5
+#SBATCH --job-name=04_merge_and_hdf5
 #SBATCH --output=slurm/%x.out
 #SBATCH --error=slurm/%x.err
 #SBATCH --mem=10GB
 #SBATCH --qos=short
-#SBATCH --time=4:00:00
+#SBATCH --time=8:00:00
 
 # Set working directory and load the conda environment
 source setup.sh
@@ -19,7 +19,7 @@ source setup.sh
 # === Input ===
 
 # Directory with phased VCF files for each F8 separately
-indir=$workdir/07_hmm_genotyping/03_beagle
+indir=$scratchdir/05_imputation/03_beagle
 
 # VCF file for the parents with common genic SNPs only previously used for validation
 genic_SNPs=03_processing/03_validate_genotypes/output/snps_in_genes.tsv.gz
@@ -27,8 +27,8 @@ genic_SNPs=03_processing/03_validate_genotypes/output/snps_in_genes.tsv.gz
 
 # === Output ===
 
-outdir=$workdir/07_hmm_genotyping/${SLURM_JOB_NAME}
-# outdir=$workdir/07_hmm_genotyping/06_merge_and_hdf5
+outdir=$scratchdir/05_imputation/${SLURM_JOB_NAME}
+# outdir=$scratchdir/05_imputation/06_merge_and_hdf5
 mkdir -p $outdir
 
 # Text file with the paths to the VCF files to merge
@@ -36,6 +36,7 @@ vcf_to_merge=$outdir/vcf_to_merge.txt
 
 # Output files merging individual samples
 merged_vcf=$outdir/F8_phased_imputed.vcf.gz
+progeny_names=03_processing/05_imputation/output/F8_phased_imputed_line_names.txt
 
 # Files with only genic SNPs to be used for validation.
 validation_vcf=$outdir/F8_validation.vcf.gz
@@ -51,12 +52,19 @@ echo "Found $(cat $vcf_to_merge | wc -l) individual VCF files to merge."
 
 echo "Merging VCF files"
 bcftools merge \
-    -l $vcf_to_merge \
+    -l $vcf_to_merge | \
+bcftools view \
+    -M2 \
+    -v snps \
     -O z \
     -o $merged_vcf
 tabix $merged_vcf
+# Create a text file with the names of the progeny
+bcftools query -l $merged_vcf > $progeny_names
+
 # Copy the merged VCF file to the project directory
-cp $merged_vcf 03_processing/05_imputation//output/
+cp ${merged_vcf}* 03_processing/05_imputation/output
+
 
 
 # Files for validation

@@ -40,12 +40,12 @@ regmap=03_processing/01_parental_SNP_matrix/output/RegMap_with_ChrNames.vcf.gz
 resequenced=03_processing/04_resequencing/output/resequenced.vcf.gz
 
 # .ped file giving lines to be resequenced
-sample_sheet=$workdir/07_hmm_genotyping/01_sample_sheet/beagle_sample_sheet.ped
+sample_sheet=$scratchdir/05_imputation/01_sample_sheet/beagle_sample_sheet.ped
 
 
 # === Output ===
 
-outdir=$workdir/07_hmm_genotyping/${SLURM_JOB_NAME}
+outdir=$scratchdir/05_imputation/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # Intermediate VCF files to be merge later
@@ -60,7 +60,10 @@ missing_parents=$outdir/missing_parents.vcf.gz
 list_of_most_parents=$outdir/list_of_most_parents.txt
 
 # Final VCF file with all parents
-reference_panel=$outdir/reference_panel.vcf.gz
+reference_panel=$outdir/parental_lines.vcf.gz
+# Text file with the names of the parental lines
+line_names=$outdir/parental_line_names.txt
+
 
 # === Main ===
 
@@ -94,11 +97,22 @@ bcftools view \
 tabix $missing_parents
 
 # Merge the three VCF files into a single VCF file
+# Keep only biallelic SNPs
 # This will be used as a reference panel for the Beagle imputation
 bcftools merge \
     -O z \
-    -o $reference_panel \
     $most_parents \
     $incorrect_parents \
-    $missing_parents
+    $missing_parents | \
+bcftools view \
+    -M2 \
+    -v snps \
+    -O z \
+    -o $reference_panel
 tabix $reference_panel
+
+# Create a text file with the names of the parental lines
+bcftools query -l $reference_panel > $line_names
+
+cp $reference_panel 03_processing/05_imputation/output/
+cp $line_names 03_processing/05_imputation/output/

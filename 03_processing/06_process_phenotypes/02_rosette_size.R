@@ -3,8 +3,6 @@
 #' Estimate genetic values for each line from the phenotype data by fitting
 #' BLUPs.
 #'
-#' Note that accession 1137 does not appear to have been sequenced, so this is
-#' removed for now.
 #'
 #' Inputs:
 #'    Raw data file for rosette size including replicate lines 1 and 2 and parents
@@ -15,38 +13,69 @@
 #'    The first column is a vector of 1s to tell GEMMA to fit an intercept.
 #'    Subsequent columns show genotype and BLUP estimates of
 #'    genetic values of rosette size. There are separate file for replicate lines
-#'    1 and 2, plus the parents
+#'    1 and 2, plus the parents.
+#'    Output files are in the same order as the genotype files, with missing
+#'    phenotype values where necessary.
 
 library(tidyverse)
 library(lme4)
 
-source("03_processing/04_pieters_VCF/04_align_original_corrected_sample_names.R")
+# === Inputs === #
+
+#' Raw data file for rosette size including replicate lines 1 and 2 and parents
+#' from the growth-room phenotyping experiment.
+raw_data_path <- "01_data/05_phenotype_expt/rosette_size_parents_F9s.csv"
+
+# Data frame giving original and corrected names
+source("03_processing/06_process_phenotypes/01_update_names.R")
+# List of parental and F8 lines that have been genotyped and validated
+parental_names <- read_csv(
+  "03_processing/05_imputation/output/parental_line_names.txt",
+  col_names = c("genotype"), col_types = 'c'
+)
+progeny_names <- read_csv(
+  "03_processing/05_imputation/output/F8_phased_imputed_line_names.txt",
+  col_names = c("genotype"), col_types = 'c'
+)
+
+
+
+# === Output === #
+
+# Directory for saving the output files (which will be the input for GEMMA)
+outdir <- "03_processing/06_process_phenotypes/output"
+dir.create(outdir, showWarnings = FALSE)
+
+# Text files for three cohorts that PLINK can read
+rep1    <- paste0(outdir, "/rosette_size_blups_rep1.tsv")
+rep2    <- paste0(outdir, "/rosette_size_blups_rep2.tsv")
+combined<- paste0(outdir, "/rosette_size_blups_F9_combined.tsv")
+parents <- paste0(outdir, "/rosette_size_blups_parents.tsv")
+
+
+
+# === Main === #
 
 # Import data on rosette size for each individual
-raw_rosette_size <- read_csv("01_data/05_phenotype_expt/rosette_size_parents_F9s.csv") %>%
+raw_rosette_size <- read_csv(raw_data_path) %>%
+  rename(
+    replicate = cohort
+  ) %>%
   filter(
-    cohort != 1, # There are no data on cohort 1
+    replicate != 1, # There are no data on cohort 1
     size1 > 0 # Remove plants that never germinated.
     ) %>%
-  # Rosette size is the mean of three measurements
   mutate(
-    genotype = str_replace(genotype, " ", "_"),
-    rosette = (size1 + size2 + size3) / 3
+    genotype = str_replace(genotype, " ", "_")
   )
-
-# Correct sample names and remove dubious genotypes.
-raw_rosette_size <- raw_rosette_size %>%
-  left_join(sample_name_corrections, by=c("genotype" = "Sample_name_original")) %>%
-  # If the sample is a parent, add genotpe to Sample_name_corrected
+# Swap genotype names for corrected names where necessary
+raw_rosette_size %>%
+  left_join(naming_file, by =c("genotype" = "original_name")) %>%
   mutate(
-    Sample_name_corrected = ifelse(generation == "parent", genotype, Sample_name_corrected)
+    corrected_name = ifelse(generation == "parent", genotype, corrected_name)
   ) %>%
-  filter( ! is.na(Sample_name_corrected)) %>% # Remove entries that are still NA
-  rename(
-    genotype_original = genotype,
-    genotype = Sample_name_corrected
-  )
-
+  select(-genotype) %>%
+  rename(genotype = corrected_name)
 # Add a column 'cohort' indicating whether a sample is a parent, or from cross
 # replicate1 or 2
 raw_rosette_size <- raw_rosette_size %>%
@@ -57,51 +86,61 @@ raw_rosette_size <- raw_rosette_size %>%
       grepl("rep2", genotype) ~ "rep2"
     )
   )
-
-
-# Remove 5835, because Pieter thinks this was confused with 6180
-# Also 1435, which Pieter think was confused with 7383
+# Pivot longer so that all three size estimates for each plant are on separate rows.
 raw_rosette_size <- raw_rosette_size %>%
-  filter(
-    genotype != "5835",
-    genotype != "1435"
-    )
+  pivot_longer(size1:size3, names_to = "measurement", values_to = "rosette")
+
+# Square-root transforming the data gives surprisingly nicely normal data
+#hist(sqrt(raw_rosette_size$rosette))
+#hist(log(raw_rosette_size$rosette))
 
 # Fit BLUPs for rosette size
-# Notice the fixed effect of 'generation' which allows for different means for
-rosette_blups <- ranef(
-  lmer( log(rosette) ~ cohort + (1 | tray) + (1 | genotype), data = raw_rosette_size)
-)$genotype %>%
+# This doesn't include replicate, because
+rosette_model <- lmer(
+    sqrt(rosette) ~  (1|cohort) + (1 | tray) + (1 | genotype) + (1|id) ,
+    data = raw_rosette_size
+    )
+
+rosette_blups <- ranef(rosette_model)$genotype %>%
   mutate(
     dummy_column = 0, # Include a column of zeroes to tell GEMMA to fit an intercept
     genotype   = row.names(.)
   ) %>%
-  select(dummy_column, genotype, `(Intercept)`)
+  select(dummy_column, genotype, `(Intercept)`) %>%
+  rename(
+    blup = `(Intercept)`
+  )
 
-rosette_blups %>%
+# Data file for parental lines.
+# 15 lines have no phenotype. They either didn't germinate or didn't flower
+parental_names %>%
+  left_join(rosette_blups) %>% # Left join preserves the order in line names
+  select(dummy_column, genotype, blup) %>%
+  mutate(
+    dummy_column = 0
+  ) %>%
+  write_tsv(parents, col_names = FALSE)
+
+# BLUPs for progeny, in the order they appear in the genotype file.
+progeny_blups <- progeny_names %>%
+  left_join(rosette_blups) %>%
+  select(dummy_column, genotype, blup) %>%
+  mutate(
+    dummy_column = 0
+    )
+# Data file for all progeny lines combined
+progeny_blups %>%
+  write_tsv(combined, col_names = FALSE)
+# Data file for all cohort 1
+progeny_blups %>%
   filter(
     grepl("rep1", genotype)
   ) %>%
-  write_tsv(
-    "03_processing/06_process_phenotypes/output/rosette_size_blups_F9_rep1.tsv",
-    col_names = FALSE
-    )
-
-rosette_blups %>%
+  write_tsv(rep1, col_names = FALSE)
+# Data file for all cohort 2
+progeny_blups %>%
   filter(
     grepl("rep2", genotype)
   ) %>%
-  write_tsv(
-    "03_processing/06_process_phenotypes/output/rosette_size_blups_F9_rep2.tsv",
-    col_names = FALSE
-  )
+  write_tsv(rep2, col_names = FALSE)
 
-rosette_blups %>%
-  filter(
-    ! grepl("rep", genotype),
-    genotype != "1137"
-  ) %>%
-  write_tsv(
-    "03_processing/06_process_phenotypes/output/rosette_size_blups_parents.tsv",
-    col_names = FALSE
-  )

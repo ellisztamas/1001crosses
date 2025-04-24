@@ -6,13 +6,13 @@
 # Tom Ellis, 20th March 2024
 
 # SLURM
-#SBATCH --job-name=04_ibdpainting
+#SBATCH --job-name=05_ibdpainting
 #SBATCH --output=slurm/%x-%a.out
 #SBATCH --error=slurm/%x-%a.err
 #SBATCH --mem=2GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
-#SBATCH --array=1-328
+#SBATCH --array=1-411
 
 # Set working directory and load the conda environment
 source setup.sh
@@ -23,8 +23,8 @@ i=${SLURM_ARRAY_TASK_ID}
 # i=1
 
 # VCF and HDF5 files for progeny previously identifid as correct, for genic SNPs only
-merged_vcf=$workdir/07_hmm_genotyping/03_merge_and_hdf5/F8_validation.vcf.gz
-merged_hdf5=$workdir/07_hmm_genotyping/03_merge_and_hdf5/F8_validation.hdf5
+merged_vcf=$scratchdir/05_imputation/04_merge_and_hdf5/F8_validation.vcf.gz
+merged_hdf5=$scratchdir/05_imputation/04_merge_and_hdf5/F8_validation.hdf5
 
 # Reference panel of 1163 parents
 reference_hdf5=03_processing/03_validate_genotypes/output/parents_only_genic_SNPs_mac160.hdf5
@@ -33,7 +33,7 @@ reference_hdf5=03_processing/03_validate_genotypes/output/parents_only_genic_SNP
 
 # === Output ===
 
-outdir=03_processing/05_imputation//output/ibdpainting
+outdir=03_processing/05_imputation/output/ibdpainting
 mkdir -p $outdir
 
 

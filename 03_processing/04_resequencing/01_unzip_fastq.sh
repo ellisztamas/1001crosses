@@ -25,7 +25,7 @@ infile=01_data/08_resequenced_F8s/22YHLCLT3_4_R18523_20250303.tar.gz
 # === Output ===
 
 # Output directories
-outdir=$workdir/08_resequencing/${SLURM_JOB_NAME}
+outdir=$scratchdir/04_resequencing/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
 # Local project directory to copy the multiqc report

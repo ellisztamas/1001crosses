@@ -16,8 +16,8 @@ args = commandArgs(trailingOnly=TRUE)
 if (length(args)==0) {
   stop("Please supply an argument giving the working directory", call.=FALSE)
 }
-workdir <- args[1]
-# workdir <- "03_processing/03_validate_genotypes/output"
+scratchdir <- args[1]
+# scratchdir <- "03_processing/03_validate_genotypes/output"
 
 suppressMessages(
   library('tidyverse', verbose = FALSE)
@@ -26,7 +26,7 @@ suppressMessages(
 # Text file giving sample names as they stand in the VCF file as positions
 # e.g. 4_G3
 position_names <- read_tsv(
-  paste0(workdir, "/vcf_sample_names_as_positions.txt"),
+  paste0(scratchdir, "/vcf_sample_names_as_positions.txt"),
   col_names = "pos_name"
   )
 # Results of validating the genotypes
@@ -43,18 +43,16 @@ corrected_names <- position_names %>%
   left_join(ibdresults, by='pos_name')
 
 # Text file giving sample names in the order they appear in the VCF file
-x <- corrected_names %>%
-  select(new_name) #%>%
-  write_csv(paste0(workdir, "/vcf_sample_names_as_names.txt"), col_names = FALSE)
+corrected_names %>%
+  select(new_name) %>%
+  write_csv(paste0(scratchdir, "/vcf_sample_names_as_names.txt"), col_names = FALSE)
 
 # Remove samples that had no data, were self-fertilised, or were the wrong species
-y <- corrected_names %>%
+corrected_names %>%
   filter(
     diagnosis != "Self-pollinated",
     ! grepl("Aa1xAa2", name),
     diagnosis != "no data"
   ) %>%
-  select(new_name) #%>%
-  write_csv(paste0(workdir, "/vcf_sample_names_filtered.txt"), col_names = FALSE)
-
-y$new_name %in%  x$new_name
+  select(new_name) %>%
+  write_csv(paste0(scratchdir, "/vcf_sample_names_filtered.txt"), col_names = FALSE)

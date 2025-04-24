@@ -17,19 +17,19 @@
 #SBATCH --time=08:00:00
 
 # Set working directory and load SNPmatch
-workdir=/scratch-cbe/users/$(whoami)/crosses
+scratchdir=/scratch-cbe/users/$(whoami)/crosses
 # ml build-env/2020
 ml snpmatch/3.0.1-foss-2018b-python-2.7.15
 ml bcftools/1.9-foss-2018b
 # === Input === #
 
 # SNP matrix file
-parental_vcf=$workdir/03_validate_genotypes/01_create_HDF5/parents_only_genic_SNPs_mac160.vcf.gz
+parental_vcf=$scratchdir/03_validate_genotypes/01_create_HDF5/parents_only_genic_SNPs_mac160.vcf.gz
 
 # === Output === #
 
 # Output directory for the database files
-outdir=$workdir/03_validate_genotypes/02_SNPmatch_database
+outdir=$scratchdir/03_validate_genotypes/02_SNPmatch_database
 mkdir -p $outdir
 
 output_prefix=$outdir/parental_snp_matrix

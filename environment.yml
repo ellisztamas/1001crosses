@@ -34,8 +34,8 @@ dependencies:
   - trim-galore
   - vcftools
   - pip:
-    - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
     - ibdpainting
-    - scikit-allel
     - limix-plot
     - methlab
+    - statsmodels
+    - scikit-allel

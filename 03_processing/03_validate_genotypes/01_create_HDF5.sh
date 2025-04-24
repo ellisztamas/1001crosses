@@ -39,7 +39,7 @@ genes_gff=01_data/01_reference_genome/TAIR10_GFF3_genes.gff
 
 # === Output === #
 
-outdir=$workdir/03_validate_genotypes/01_create_HDF5
+outdir=$scratchdir/03_validate_genotypes/01_create_HDF5
 mkdir -p $outdir
 
 # Text files of SNPs in the F8s

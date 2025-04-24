@@ -27,7 +27,7 @@ intersect_snps=03_processing/03_validate_genotypes/output/snps_in_genes.tsv.gz
 
 # === Output === #
 
-outdir=$workdir/03_validate_genotypes/09_regmap_data
+outdir=$scratchdir/03_validate_genotypes/09_regmap_data
 mkdir -p $outdir
 
 # Text file stating how contigs names should be corrected

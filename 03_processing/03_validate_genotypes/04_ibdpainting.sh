@@ -35,11 +35,11 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # HDF5 file for the 1163 candidate parents
-ref_1163=$workdir/03_validate_genotypes/01_create_HDF5/parents_only_genic_SNPs_mac160.hdf5
+ref_1163=$scratchdir/03_validate_genotypes/01_create_HDF5/parents_only_genic_SNPs_mac160.hdf5
 # Files with SNP calls for each sample
 # There is a VCF file and an Hdf5 file with this, name and we need both, so leave
 # the suffix off here.
-progeny_geno=$workdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160
+progeny_geno=$scratchdir/03_validate_genotypes/01_create_HDF5/progeny_only_genic_SNPs_mac160
 
 # Sample sheet linking sequencing ID, and sample ID
 sample_sheet=01_data/02_F8_unaligned_bams/sequencing_plates_original.csv 
