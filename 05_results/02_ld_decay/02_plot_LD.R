@@ -8,9 +8,8 @@ library(tidyverse)
 library(plyr)
 
 ld_files <- list(
-  rep1="05_results/02_ld_decay/output/F8_snp_matrix_purged_rep1.ld.gz",
-  rep2="05_results/02_ld_decay/output/F8_snp_matrix_purged_rep2.ld.gz",
-  parents='05_results/02_ld_decay/output/parental_snp_matrix.ld.gz'
+  parents='05_results/02_ld_decay/output/parental_lines.ld.gz',
+  progeny="05_results/02_ld_decay/output/F8_phased_imputed.ld.gz"
 )
 
 
@@ -32,7 +31,7 @@ for(name in names(ld_files)){
     meanr2 = mean(R2)
   ) %>%
     mutate(
-      dataset = name
+      Generation = name
     )
 }
 
@@ -52,11 +51,11 @@ for(name in names(ld_files)){
 # })
 
 do.call(what = 'rbind', ld_bins) %>%
-  ggplot(aes(x=bin*100, y = meanr2, colour=dataset)) +
+  ggplot(aes(x=bin/10, y = meanr2, colour=Generation)) +
   geom_point() +
   labs(
-    x = "Physical distance (bp)",
-    y = "Mean R2"
+    x = "Physical distance (kb)",
+    y = expression(paste('Mean ', r^{2}))
   ) +
-  lims(x=c(0,25000))
-
+  # lims(x=c(0,25000))
+  theme_bw()
