@@ -15,6 +15,7 @@ import allel
 import pandas as pd
 from time import time
 import argparse
+from filelock import FileLock
 
 # Parameters
 parser = argparse.ArgumentParser(
@@ -138,12 +139,15 @@ for j, bin_j in enumerate(bin_positions):
             # Remove entries for LD with itself
             pairs_in_ld = pairs_in_ld.loc[pairs_in_ld['i'] != pairs_in_ld['j']]
             
-            pairs_in_ld.to_csv(
-                args.outfile,
-                mode = 'a',
-                header = False,
-                float_format = '%.3f',
-                index = False
+            # Append the results file.
+            # FileLock is used to prevent multiple processes from writing to the file at the same time.
+            with FileLock("output.csv.lock"):
+                pairs_in_ld.to_csv(
+                    args.outfile,
+                    mode = 'a',
+                    header = False,
+                    float_format = '%.3f',
+                    index = False
             )
         
         else:

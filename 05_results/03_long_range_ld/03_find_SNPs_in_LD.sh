@@ -17,7 +17,7 @@
 #SBATCH --mem=3GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
-#SBATCH --array=0-85
+#SBATCH --array=0-87
 
 date 
 
@@ -35,7 +35,7 @@ progeny_hdf5=03_processing/05_imputation/output/F8_phased_imputed.hdf5
 snp_list=05_results/03_long_range_ld/output/parental_lines.prune.in
 
 # Minimum r2 threshold for LD to report
-ld_threshold=0.3
+ld_threshold=0.2
 
 # === Output === 
 

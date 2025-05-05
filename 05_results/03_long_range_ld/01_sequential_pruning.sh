@@ -4,7 +4,7 @@
 
 # This uses a greedy algorithm to go through SNPs within a window and remove 
 # identify pairs that are in LD>0.5. If they are, keep the one with the higher
-# MAF. This is done in a sliding window of 10,000 SNPs, with a step size of 100.
+# MAF. This is done in a sliding window of 1,000 SNPs, with a step size of 100.
 # 
 # The key is that this is done on a local scale, so I can still calculate 
 # long-range LD later.
@@ -52,7 +52,7 @@ targets_file=$outdir/targets_file.txt
 # === Main ===
 
 # Standardise ID labels so PLink parses them consistently
-# bcftools annotate --set-id '%CHROM:%POS' -O z -o $updated_vcf $infile
+bcftools annotate --set-id '%CHROM:%POS' -O z -o $updated_vcf $infile
 
 echo "Running sequential pruning on ${vcf_files[$i]}"
 # Returns Plink files
@@ -62,7 +62,7 @@ plink \
     --double-id --allow-extra-chr \
     --set-missing-var-ids @:# \
     --maf 0.05 --geno 0.1 --mind 0.5 \
-    --indep-pairwise 10000 100 0.5 \
+    --indep-pairwise 1000 100 0.5 \
     --out $output_prefix
 
 awk '{print $1,"\t",$2}' FS=':' ${output_prefix}.prune.in > $targets_file

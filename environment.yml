@@ -9,6 +9,7 @@ dependencies:
   - bwa
   - cutadapt
   - fastqc
+  - conda-forge::filelock
   - gemma
   - ipykernel
   - multiqc
