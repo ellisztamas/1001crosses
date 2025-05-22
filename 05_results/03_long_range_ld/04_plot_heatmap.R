@@ -11,13 +11,15 @@ library(tidyverse)
 # CSV files for the parents and F8s giving Chr, position and r2
 # This is for loci with a minimum r2; see previous scripts in this directory
 parents <- read_csv(
-  "05_results/03_long_range_ld/output/parents_snps_in_LD.csv"
+  "05_results/03_long_range_ld/output/parents_snps_in_LD.csv",
+  col_types = 'ccd'
   ) %>%
   mutate(
     generation = "parents"
   )
 progeny <- read_csv(
-  "05_results/03_long_range_ld/output/progeny_snps_in_LD.csv"
+  "05_results/03_long_range_ld/output/progeny_snps_in_LD.csv",
+  col_types = 'ccd'
   ) %>%
   mutate(
     generation = "progeny"
@@ -67,7 +69,7 @@ r2_table %>%
     panel.grid.minor = element_blank(),
   ) +
   scale_color_binned(type="viridis", direction=-1, n.breaks = 6) +
-  facet_grid(fct_rev(chr_j) ~ chr_i)
+  facet_grid(fct_rev(chr_j) ~ chr_i, scales="free")
 
 ggsave(
   filename = "05_results/03_long_range_ld/output/long_range_LD.png",

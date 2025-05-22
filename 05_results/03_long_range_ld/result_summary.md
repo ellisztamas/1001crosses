@@ -43,8 +43,6 @@ What there is is r2 < 0.3.
     One could think about a better way to do this.
     The logic was that LD decays within 250 kb in A. thaliana, so 1kb seems 
     kinda fine.
-- There are no SNPs beyond the rDNA clusters on Chr2 and 4, nor the end of Chr3.
-    I suspect this is an artefact, because Long et al found plenty of SNPs there.
 - This is with imputed data - is that appropriate?
 
 ## Follow-up

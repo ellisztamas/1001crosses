@@ -43,11 +43,12 @@ infile=${vcf_files[$i]}
 outdir=$scratchdir/03_long_range_ld/${SLURM_JOB_NAME}
 mkdir -p $outdir
 
+# Updated VCF file with standardised ID labels
 updated_vcf=$outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )_updated.vcf.gz
 
+# Output prefix for PLINK
 output_prefix=$outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )
 
-targets_file=$outdir/targets_file.txt
 
 # === Main ===
 
@@ -65,6 +66,5 @@ plink \
     --indep-pairwise 1000 100 0.5 \
     --out $output_prefix
 
-awk '{print $1,"\t",$2}' FS=':' ${output_prefix}.prune.in > $targets_file
-
-cp ${output_prefix}.prune.in 05_results/03_long_range_ld/output
+echo "Copy the pruning files to the output directory"
+cp ${output_prefix}.prune.{in,out} 05_results/03_long_range_ld/output

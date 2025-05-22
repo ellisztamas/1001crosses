@@ -20,10 +20,7 @@ At distances of 100kb LD levels out at about
     r2=0.07 in the parents
     r2=0.05 in the progeny
 So there is less of a difference than one would expect.
-But LD in the progeny seems to dip and come back up at around 30kb
 
 ## Caveats
-
-LD in the progeny seems to dip, and also starts lower than I would expect.
 
 ## Follow-up

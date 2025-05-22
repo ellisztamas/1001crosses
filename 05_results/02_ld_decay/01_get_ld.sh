@@ -13,8 +13,8 @@
 
 # SLURM
 #SBATCH --job-name=ld_decay
-#SBATCH --output=slurm/%x-%a.out
-#SBATCH --error=slurm/%x-%a.err
+#SBATCH --output=05_results/02_ld_decay/slurm/%x-%a.out
+#SBATCH --error=05_results/02_ld_decay/slurm/%x-%a.err
 #SBATCH --mem=10GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00

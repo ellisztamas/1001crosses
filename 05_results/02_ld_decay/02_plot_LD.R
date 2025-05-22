@@ -4,8 +4,9 @@
 # https://jyanglab.com/AGRO-932/chapters/a2.1-qg/rex11_gwas2.html#12
 
 library("data.table")
-library(tidyverse)
 library(plyr)
+library(tidyverse)
+# library(ggplot2)
 
 ld_files <- list(
   parents='05_results/02_ld_decay/output/parental_lines.ld.gz',
@@ -57,5 +58,15 @@ do.call(what = 'rbind', ld_bins) %>%
     x = "Physical distance (kb)",
     y = expression(paste('Mean ', r^{2}))
   ) +
-  # lims(x=c(0,25000))
+  lims(
+    # x=c(0,25),
+    y=c(0,0.6)
+    ) +
   theme_bw()
+
+ggsave(
+  "05_results/02_ld_decay/output/short_range_LD.png",
+  device = "png",
+  units = "in",
+  height = 6, width =8
+  )
