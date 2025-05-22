@@ -1,0 +1,265 @@
+---
+title: "Genome-wide association on flowering time at 12°C"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library("tidyverse")
+library("ggpubr")
+library("qqman")
+
+```
+
+```{import-data}
+
+source("02_library/manhattan_plot.R")
+
+
+ft12_files <- Sys.glob(
+  "05_results/16_gemma_ft12/output/*/*.assoc.txt"
+)
+names(ft12_files) <- c(
+  'parents_noK',
+  'cohort1_noK',
+  'cohort2_noK',
+  'parents_withK',
+  'cohort1_withK',
+  'cohort2_withK'
+)
+
+ft12_gwas <- lapply(ft12_files, function(filename){
+  read_tsv(filename, show_col_types = FALSE) %>%
+    add_base_pair_positions()
+})
+
+
+plot_titles <- c(
+  "Parents, no relatedness matrix",
+  "F9 cohort 1, no relatedness matrix",
+  "F9 cohort 2, no relatedness matrix",
+  "Parents, adjusted for relatedness",
+  "F9 cohort 1, adjusted for relatedness",
+  "F9 cohort 2, adjusted for relatedness"
+)
+
+mh_plots <- vector('list', length(ft12_files))
+names(mh_plots) <- names(ft12_gwas)
+
+for( i in 1:6){
+  mh_plots[[i]] <- manhattan_plot(
+    chr=ft12_gwas[[i]]$chr,
+    pos=ft12_gwas[[i]]$ps,
+    pvalue=ft12_gwas[[i]]$p_lrt,
+    signif_cutoff = 0.05, fraction_to_keep = 0.01,
+    title = plot_titles[i]
+  )
+}
+
+
+
+```
+
+# QQ plots
+
+```{r create-qqplots}
+
+mh_plots <- vector('list', length(ft12_files))
+names(mh_plots) <- names(ft12_gwas)
+
+for( i in 1:6){
+  qqman::qq(ft12_gwas[[i]]$p_lrt, main = plot_titles[i])
+}
+
+
+```
+
+# Manhattan plots without structure adjustment
+
+```{r mh-noK}
+ggarrange(
+  mh_plots$parents_noK,
+  mh_plots$cohort1_noK,
+  mh_plots$cohort2_noK,
+  nrow = 3, ncol=1
+)
+```
+
+# Manhattan plots with structure adjustment
+
+```{r mh-K}
+ggarrange(
+  mh_plots$parents_withK,
+  mh_plots$cohort1_withK,
+  mh_plots$cohort2_withK,
+  nrow = 3, ncol=1
+)
+```
+
+# Compare with and without adjustment
+
+```{r mh-parents}
+ggarrange(
+  mh_plots$parents_noK,
+  mh_plots$parents_withK
+  nrow = 2, ncol=1
+)
+```
+
+Plot the distribution of allele frequencies
+  
+<!-- ```{r manhattan-plots, fig.height=25/2.54, fig.width=16.9} -->
+
+<!-- # Manhattan plots hint at peaks... -->
+
+<!-- ggarrange( -->
+<!--   mh_plots -->
+<!--   nrow=3, ncol=1 -->
+<!-- ) -->
+
+<!-- ggsave( -->
+<!--   filename = "05_results/04_gwas_ft12/output/plot_manhattan.png", -->
+<!--   bg='white', -->
+<!--   device = 'png', -->
+<!--   units = 'cm', width = 16.9, height =25 -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r effect-sizes, fig.width=16.9/2.54} -->
+
+<!-- ggarrange( -->
+<!--   inner_join( -->
+<!--     ft12_gwas$rep1 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$rep2 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep1", '_rep2') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(x= beta_rep1, y = beta_rep2)) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "Effect sizes (F8s, rep. 1)", -->
+<!--       y = "Effect sizes (F8s, rep. 2)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   inner_join( -->
+<!--     ft12_gwas$rep1 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$parents %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep", '_parents') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(x= beta_parents, y = beta_rep)) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "Effect sizes (parents)", -->
+<!--       y = "Effect sizes (F8s, rep. 1)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   inner_join( -->
+<!--     ft12_gwas$rep2 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$parents %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep", '_parents') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(y = beta_rep, x= beta_parents)) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "Effect sizes (parents)", -->
+<!--       y = "Effect sizes (F8s, rep. 2)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   nrow =1, ncol=3 -->
+<!-- ) -->
+
+<!-- ggsave( -->
+<!--   filename = "05_results/04_gwas_ft12/output/plot_effect_sizes.png", -->
+<!--   bg='white', -->
+<!--   device = 'png', -->
+<!--   units = 'cm', width = 16.9, height =15 -->
+<!-- ) -->
+
+<!-- ``` -->
+
+<!-- ```{r pvalues, fig.width=16.9/2.54} -->
+
+<!-- ggarrange( -->
+<!--   inner_join( -->
+<!--     ft12_gwas$rep1 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$rep2 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep1", '_rep2') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(x= -log10(p_lrt_rep1), y = -log10(p_lrt_rep2))) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "-log10 p (parents)", -->
+<!--       y = "-log10 p (F8s, rep1)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   inner_join( -->
+<!--     ft12_gwas$rep1 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$parents %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep", '_parents') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(x= -log10(p_lrt_parents), y = -log10(p_lrt_rep))) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "-log10 p (parents)", -->
+<!--       y = "-log10 p (F8s, rep1)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   inner_join( -->
+<!--     ft12_gwas$rep2 %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     ft12_gwas$parents %>%  -->
+<!--       dplyr::select(chr, ps, p_lrt, beta), -->
+<!--     by = c("chr", "ps"), -->
+<!--     suffix = c("_rep", '_parents') -->
+<!--   ) %>%  -->
+<!--     ggplot(aes(y = -log10(p_lrt_rep), x= -log10(p_lrt_parents))) + -->
+<!--     geom_point() + -->
+<!--     geom_abline(intercept = 0, slope = 1) + -->
+<!--     labs( -->
+<!--       x = "-log10 p (parents)", -->
+<!--       y = "-log10 p (F8s, rep1)" -->
+<!--     ) + -->
+<!--     theme_bw(), -->
+
+<!--   ncol=3 -->
+<!-- ) -->
+
+<!-- ggsave( -->
+<!--   filename = "05_results/04_gwas_ft12/output/plot_pvalues.png", -->
+<!--   bg='white', -->
+<!--   device = 'png', -->
+<!--   units = 'cm', width = 16.9, height =15 -->
+<!-- ) -->
+
+<!-- ``` -->
+

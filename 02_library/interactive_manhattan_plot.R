@@ -16,7 +16,7 @@ library("optparse")
 option_list = list(
   make_option(c("-i", "--input"), type="character", default=NULL,
               help="Results file from GEMMA", metavar="character"),
-  make_option(c("-t", "--threshold"), type="numeric", default=0,
+  make_option(c("-t", "--threshold"), type="numeric", default=2,
               help="Minimum -log10 p-value to draw points", metavar="character")
 );
 
