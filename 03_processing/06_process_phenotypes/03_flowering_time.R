@@ -51,7 +51,7 @@ flowering_time <-flowering_time %>%
     corrected_name = ifelse(generation == "parent", genotype, corrected_name)
   ) %>%
   select(-genotype) %>%
-  rename(genotype = corrected_name)
+  dplyr::rename(genotype = corrected_name)
 
 # BLUPs for flowering time, accounting for tray nested within replicate, and
 # cohort (parent, F8 cohort 1, F8 cohort 2).
@@ -64,7 +64,7 @@ ft_blups <- ranef(mod_ft)$genotype %>%
     dummy_column = 0, # Include a column of zeroes to tell GEMMA to fit an intercept
     genotype   = row.names(.)
   ) %>%
-  rename(
+  dplyr::rename(
     blup = `(Intercept)`
   )
 
@@ -75,8 +75,7 @@ parental_names %>%
   left_join(ft_blups) %>% # Left join preserves the order in line names
   select(dummy_column, genotype, blup) %>%
   mutate(
-    dummy_column = 0,
-    blup = ifelse(is.na(blup), -9, blup)
+    dummy_column = 0
   ) %>%
   write_tsv(parents, col_names = FALSE)
 
@@ -86,9 +85,8 @@ progeny_blups <- progeny_names %>%
   left_join(ft_blups) %>%
   select(dummy_column, genotype, blup) %>%
   mutate(
-    dummy_column = 0,
-    blup = ifelse(is.na(blup), -9, blup)
-  )
+    dummy_column = 0
+    )
 # Data file for all progeny lines combined
 progeny_blups %>%
   write_tsv(combined, col_names = FALSE)

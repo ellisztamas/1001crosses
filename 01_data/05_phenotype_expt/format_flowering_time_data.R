@@ -55,7 +55,7 @@ flowering_time <- rbind(ft10_AMM, ft10_TJE) %>%
 # Three plants flowered on the 1st June and need the date correcting.
 flowering_time <-  flowering_time %>%
   mutate(
-    date = ifelse( grepl("1st June",    comment), dmy("01/06/2024"), date)
+    date = ifelse( grepl("1st June",    comment), lubridate::dmy("01/06/2024"), date)
   )
 
 
@@ -78,9 +78,9 @@ flowering_time <- flowering_time %>%
       generation == "parent" ~ "parents"
     ),
     # date the plant flowered
-    date = dmy(date),
+    date = lubridate::dmy(date),
     # Date the plant was sown (or moved to the growth room)
-    start_date = dmy(
+    start_date = lubridate::dmy(
       case_when(
         tray %in% 1:14 ~ "27/03/2024",
         tray %in% 15:20 ~ "16/04/2024",
