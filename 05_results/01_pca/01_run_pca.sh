@@ -10,8 +10,8 @@
 
 # SLURM
 #SBATCH --job-name=pca
-#SBATCH --output=slurm/%x-%a.out
-#SBATCH --error=slurm/%x-%a.err
+#SBATCH --output=05_results/01_pca/slurm/%x-%a.out
+#SBATCH --error=05_results/01_pca/slurm/%x-%a.err
 #SBATCH --mem=10GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
@@ -35,6 +35,8 @@ vcf_files=($parents $progeny)
 # File to use in this job
 infile=${vcf_files[$i]}
 
+
+
 # === Output files ===
 
 # Output directory
@@ -42,6 +44,8 @@ outdir=05_results/01_pca/output
 mkdir -p $outdir
 # Suffix for output files
 file_suffix=$outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )
+
+
 
 # === Script ===
 

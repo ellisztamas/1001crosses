@@ -1,0 +1,498 @@
+---
+title: "PCA in the parents and progeny"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    html-math-method: katex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+# 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library("tidyverse"))
+library("ggpubr")
+library("qqman")
+```
+
+```{r pca-data}
+# List of file paths giving eigenvectors
+eigenvec_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenvec",
+  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenvec"
+)
+# List of file paths giving eigen values
+eigenval_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenval",
+  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenval"
+)
+
+# Import PCA data
+eigenvecs <- lapply(names(eigenvec_files), function(name){
+  filename <- eigenvec_files[[name]]
+  read.table(filename, header=TRUE) %>%
+    as_tibble() %>%
+    mutate(
+      dataset = name,
+      FID = as.character(FID),
+      IID = as.character(IID)
+    )
+})
+names(eigenvecs) <- names(eigenvec_files)
+
+eigenvals <- lapply(names(eigenval_files), function(name){
+  filename <- eigenval_files[[name]]
+  read.table(filename, col.names="eigenval", header=FALSE) %>%
+    as_tibble() %>%
+    mutate(
+      eigenval = round(100*(eigenval / sum(eigenval)), 1),
+      dataset = name
+    )
+})
+names(eigenvals) <- names(eigenval_files)
+```
+
+```{r gps-data}
+gps <- read_csv(
+  "01_data/03_parental_genotypes/1135_accessions_updated_coordinates.csv",
+  col_select = c('id', 'latitude', 'longitude'),
+  show_col_types = FALSE
+) %>%  
+  mutate(
+    FID = as.character(id)
+  )
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(gps, by = "FID")
+```
+
+
+```{r ft12-data}
+# BLUPs for flowering time at 12°C
+ft12 <- list(
+  progeny = read_tsv(
+    "03_processing/06_process_phenotypes/output/flowering_time_blups_F9_combined.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'days_to_flower')
+  ),
+  
+  parents = read_tsv(
+    "03_processing/06_process_phenotypes/output/flowering_time_blups_parents.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'days_to_flower')
+  )
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(ft12$parents, by = "FID")
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  left_join(ft12$progeny, by = "FID")
+
+```
+
+```{r rosette-data}
+# BLUPs
+rosette_size <- list(
+  progeny = read_tsv(
+    "03_processing/06_process_phenotypes/output/rosette_size_blups_F9_combined.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'rosette_size')
+  ),
+  
+  parents = read_tsv(
+    "03_processing/06_process_phenotypes/output/rosette_size_blups_parents.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'rosette_size')
+  )
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(rosette_size$parents, by = "FID")
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  left_join(rosette_size$progeny, by = "FID")
+
+```
+
+This document investigates principle components of genetic variation in 219 parental and 501 (imputed) F8 datasets.
+
+## Basic PCA
+
+Looking first at the variance explained by each PC, eigenvectors for the parents start high and decay within 20 PCs. Eigenvectors for the F8s start lower and decay more smoothly.
+
+```{r eigenvalues}
+rbind(
+  eigenvals$parents,
+  eigenvals$progeny
+) %>% 
+  mutate(
+    PC = rep(1:20, 2)
+  ) %>% 
+  ggplot(aes(x = PC, y=eigenval)) +
+  geom_line() + 
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Eigenvalue"
+  ) +
+  facet_grid(~ dataset)
+```
+
+A first comparison shows that structure in the parents is L-shaped, roughly corresponding to PCs 1 and 2. In the progeny, most of PC2 is collapsed, and most samples form one cluster, but is a second cluster with 9 samples with high PC2.
+
+```{r basic-pca}
+ggarrange(
+  eigenvecs$parents %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[3], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+  
+  eigenvecs$progeny %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[3], "%)"),
+      title = "Progeny"
+    ) +
+    theme_bw(),
+  
+  ncol =2
+)
+```
+
+F8 cohorts are well mixed.
+
+```{r}
+eigenvecs$progeny %>%
+  mutate(cohort = case_when(
+    grepl("_rep1", FID) ~ "Cohort 1",
+    grepl("_rep2", FID) ~ "Cohort 2",
+    .default = NA
+  )) %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = cohort)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+    title = "Progeny by cohort"
+  ) +
+  theme_bw()
+```
+
+### Cluster of individuals with high PC2
+
+Here are the samples with high PC2:
+
+```{r}
+pc2_cluster <- eigenvecs$progeny %>% 
+  filter(PC1 > 0.1) %>% 
+  pull(FID)
+pc2_cluster
+```
+
+They are derived from nine unique parents:
+
+```{r}
+parents_of_pc2_cluster <- c(
+  substr(pc2_cluster, start = 1, stop = 4),
+  substr(pc2_cluster, start = 6, stop = 9)
+)
+parents_of_pc2_cluster <- unique(parents_of_pc2_cluster)
+parents_of_pc2_cluster
+```
+
+I was expecting these parents to all have high values of PC2 themselves, but this is not the case. In fact, what they have in common are parents 1435, 5835 and 6199, which were taken from the RegMap panel.
+
+```{r}
+eigenvecs$parents %>%
+  mutate(
+    is_parent = FID %in% parents_of_pc2_cluster
+  ) %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = is_parent)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+    title = "Parents of the cluster of 9"
+  ) +
+  theme_bw()
+```
+
+Structure is much more isotropic if you remove the cluster of nine.
+
+```{r}
+eigenvecs$progeny %>%
+  filter(PC2 < 0.1) %>% 
+  
+  ggplot(aes(x=PC1, y = PC2)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+    title = "Progeny, excluded PC2 cluster"
+  ) +
+  theme_bw()
+```
+
+## What are PCs correlated with?
+
+### Geography
+
+PC1 appears to be correlated with latitude, with higher values found further further North.
+
+```{r}
+eigenvecs$parents %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = latitude)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+    title = "Parents"
+  ) +
+  theme_bw()
+```
+
+PC1 stands out as being strongly correlated with latitude (also longitude, but the point is moot because Sweden is wonky).
+
+```{r geography-cor}
+
+geography_cor <- tibble(
+  PC = 1:18,
+  latitude = rep(NA, 18),
+  longitude = rep(NA, 18)
+  )
+
+for(i in 3:20){
+  geography_cor$latitude[i-2] <- cor(
+    eigenvecs$parents$latitude,
+    eigenvecs$parents[,i],
+    method = 's', use = 'p'
+  )
+  geography_cor$longitude[i-2] <- cor(
+    eigenvecs$parents$longitude,
+    eigenvecs$parents[,i],
+    method = 's', use = 'p'
+  )
+}
+
+geography_cor %>% 
+  pivot_longer(latitude:longitude, values_to = "correlation") %>% 
+  ggplot(aes(x=PC, y=correlation)) +
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Correlation coefficient"
+  ) +
+  facet_grid(~name)
+
+```
+
+You can see broadly the same pattern if you plot them on a map.
+There is also one whacky accession from the Netherlands (7002) which was identified as a mismatching cross.
+
+```{r map}
+
+map_data('world') %>% 
+  ggplot() +
+  # Plot an empty map of the world
+  # Borders are shown the same colour as the country backgrounds
+  geom_polygon(
+    aes(x=long, y = lat, group = group),
+    fill="gray90", colour="gray70") + 
+  coord_fixed(
+    xlim = range(eigenvecs$parents$longitude, na.rm = TRUE),
+    ylim = range(eigenvecs$parents$latitude, na.rm = TRUE),
+    1.5
+  ) +
+  # Overplot the accessions
+  geom_point(
+    data = eigenvecs$parents ,
+    aes(x=longitude, y = latitude, colour=PC1)) +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    legend.title = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+    )
+
+# There's a whacky accession from the Netherlands (7002)
+eigenvecs$parents %>%
+  filter(latitude < 51.4)
+
+```
+
+### Flowering time
+
+There is no obvious correlation between flowering time at 12°C and PCs 1 and 2.
+
+```{r}
+
+ggarrange(
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = days_to_flower)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+  
+  eigenvecs$progeny %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = days_to_flower)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+      title = "Progeny"
+    ) +
+    theme_bw(),
+  
+  ncol=1, nrow=2
+)
+
+```
+
+In fact, if we calculate Spearman-rank correlations between flowering time BLUPs and each PC we see there are some quite substantial correlations, especially for the parents, and especially PCs 1, 2, 3, 4,6 and 14.
+
+```{r}
+
+ft12_cor <- tibble(
+  PC = 1:18,
+  parents = rep(NA, 18),
+  progeny = rep(NA, 18)
+)
+
+plot(
+  eigenvecs$parents$PC1,
+  eigenvecs$parents$days_to_flower
+)
+
+for(i in 3:20){
+  ft12_cor$parents[i-2] <- cor(
+    eigenvecs$parents$days_to_flower,
+    eigenvecs$parents[,i],
+    method = 's', use = 'p'
+  )
+  
+  ft12_cor$progeny[i-2] <- cor(
+    eigenvecs$progeny$days_to_flower,
+    eigenvecs$progeny[,i],
+    method = 's', use = 'p'
+  )
+}
+
+
+ft12_cor %>% 
+  pivot_longer(parents:progeny, values_to = "correlation") %>% 
+  ggplot(aes(x=PC, y=correlation)) +
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Correlation with flowering time"
+  ) +
+  facet_grid(~name)
+
+
+```
+
+### Rosette size
+
+There again seems to be no correlation between PCs 1 and 2 and rosette size.
+
+```{r}
+ggarrange(
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = rosette_size)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+  
+  eigenvecs$progeny %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = rosette_size)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+      title = "Progeny"
+    ) +
+    theme_bw(),
+  
+  ncol=1, nrow=2
+)
+
+```
+
+Plotting correlation coefficients also shows that correlations are generally weaker, with notable exceptions of PC9 for the parents and PC1 for the progeny.
+
+```{r}
+
+rs_cor <- tibble(
+  PC = 1:18,
+  parents = rep(NA, 18),
+  progeny = rep(NA, 18)
+)
+
+plot(
+  eigenvecs$parents$PC1,
+  eigenvecs$parents$rosette_size
+)
+
+for(i in 3:20){
+  rs_cor$parents[i-2] <- cor(
+    eigenvecs$parents$rosette_size,
+    eigenvecs$parents[,i],
+    method = 's', use = 'p'
+  )
+  
+  rs_cor$progeny[i-2] <- cor(
+    eigenvecs$progeny$rosette_size,
+    eigenvecs$progeny[,i],
+    method = 's', use = 'p'
+  )
+}
+
+
+rs_cor %>% 
+  pivot_longer(parents:progeny, values_to = "correlation") %>% 
+  ggplot(aes(x=PC, y=correlation)) +
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Correlation with rosette size"
+  ) +
+  facet_grid(~name)
+
+
+```
+
+You can see the correlation if you squint a bit.
+
+```{r}
+plot(
+  eigenvecs$progeny$PC1, eigenvecs$progeny$rosette_size
+)
+```
+
