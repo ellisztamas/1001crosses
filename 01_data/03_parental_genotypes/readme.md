@@ -25,3 +25,18 @@ From the publication:
 
 Downloaded from here:
 https://figshare.com/projects/Imputation_of_3_million_SNPs_in_the_Arabidopsis_regional_mapping_population/72887
+
+# Resequenced data for 1435 and 5835
+
+I suspected that these accessions are incorrect in the 1001 genomes data.
+Seed stocks were resequenced, and data are in this folder, which is messy:
+
+`/groups/nordborg/raw.data/athaliana/dna/the1001genomes_datasets/003.resequencing_seed_stocks/gbs_1001`
+
+It is not easy to tell which samples are from which seed batch but I think I 
+found one 1435 from 2017 and two from 5835 from the 2017 stock.
+They are labelled
+
+- `1435_seedstock.bam`
+- `5835_seedstock_1.bam`
+- `5835_seedstock_2.bam`

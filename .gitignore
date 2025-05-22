@@ -11,6 +11,10 @@
 .Ruserdata
 .vscode
 .nextflow
+*.vcf.gz
+*.fastq
+*.fastq.gz
+*.bam
 01_data/01_reference_genome/TAIR10_chr_all*
 01_data/02_F8_unaligned_bams/H*
 01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf*
@@ -262,3 +266,5 @@ rsconnect/
 
 # End of https://www.toptal.com/developers/gitignore/api/r,python,jupyternotebooks
 
+
+/.quarto/
