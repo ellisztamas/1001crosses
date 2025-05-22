@@ -13,8 +13,8 @@
 
 # SLURM
 #SBATCH --job-name=03_beagle
-#SBATCH --output=slurm/%x-%a.out
-#SBATCH --error=slurm/%x-%a.err
+#SBATCH --output=03_processing/05_imputation/slurm/%x-%a.out
+#SBATCH --error=03_processing/05_imputation/slurm/%x-%a.err
 #SBATCH --mem=5GB
 #SBATCH --qos=short
 #SBATCH --time=2:00:00
@@ -44,7 +44,7 @@ reference_panel=$scratchdir/05_imputation/02_reference_panel/parental_lines.vcf.
 # VCF files for the progeny
 # There are two, and the sample sheet has a column indicating which to use
 resequenced_vcf=$scratchdir/04_resequencing/08_merge_VCF/resequenced.vcf.gz
-low_coverage_vcf=$scratchdir/03_validate_genotypes/08_correct_split_vcf/F8_filtered.vcf.gz
+low_coverage_vcf=03_processing/03_validate_genotypes/output/F8_filtered.vcf.gz
 
 # Path to the binary file for Beagle
 beagle=02_library/beagle.r1399.jar

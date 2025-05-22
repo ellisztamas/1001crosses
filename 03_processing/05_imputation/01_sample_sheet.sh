@@ -44,7 +44,7 @@ resequenced_names=$outdir/resequenced_names.txt
 # Ped file for low-coverage lines
 lowcoverage_ped=$outdir/lowcoverage.ped
 # Concatenate the two ped files
-beagle_sample_sheet=$outdir/beagle_sample_sheet.txt
+beagle_sample_sheet=$outdir/beagle_sample_sheet.ped
 
 
 # === Main ===

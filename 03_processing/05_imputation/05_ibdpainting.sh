@@ -7,8 +7,8 @@
 
 # SLURM
 #SBATCH --job-name=05_ibdpainting
-#SBATCH --output=slurm/%x-%a.out
-#SBATCH --error=slurm/%x-%a.err
+#SBATCH --output=03_processing/05_imputation/slurm/%x-%a.out
+#SBATCH --error=03_processing/05_imputation/slurm/%x-%a.err
 #SBATCH --mem=2GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00

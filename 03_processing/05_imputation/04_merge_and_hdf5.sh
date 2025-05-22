@@ -7,8 +7,8 @@
 
 # SLURM
 #SBATCH --job-name=04_merge_and_hdf5
-#SBATCH --output=slurm/%x.out
-#SBATCH --error=slurm/%x.err
+#SBATCH --output=03_processing/05_imputation/slurm/%x.out
+#SBATCH --error=03_processing/05_imputation/slurm/%x.err
 #SBATCH --mem=10GB
 #SBATCH --qos=short
 #SBATCH --time=8:00:00
