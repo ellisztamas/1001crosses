@@ -1,0 +1,1233 @@
+---
+title: "Experimental manipulation of LD in a highly stuctured population of *Arabidopsis thaliana*"
+author: "Tom Ellis"
+date: "`r Sys.Date()`"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    css: ../gmi.css
+    incremental: false 
+---
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+<script>
+$(document).ready(function() {
+$('slide:not(.title-slide, .backdrop, .segue)').append('<footer></footer>');    
+$('footer').attr('label', 'www.tom-ellis.info');
+
+})
+</script>
+
+<style>
+footer:after {
+font-size: 12pt;
+content: attr(label);
+position: absolute;
+bottom: 1px;
+right: 60px;
+line-height: 1.9;
+display: block;
+color: #007243
+}
+</style>
+
+```{r setup, include=FALSE}
+
+options(bitmapType='cairo')
+options(dplyr.summarise.inform = FALSE)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache=TRUE, cache.lazy=TRUE,
+  fig.align='center',
+  warning = F,
+  dev=c('png'),
+  message=FALSE,
+  out.width="60%"
+)
+options(knitr.graphics.error = FALSE)
+
+library("tidyverse")
+library('ggpubr')
+library('knitr')
+library('lme4')
+library('QGglmm')
+library("ggvenn")                       
+
+
+source("02_library/manhattan_plot.R")
+
+theme_set(theme_bw())
+
+path_plot <- function(filename){
+  include_graphics(
+    paste0(
+      '/groups/nordborg/projects/crosses/tom/03_processing/03_validate_genotypes/output/ibdpainting/',
+      filename )
+  )
+}
+```
+
+```{r pca-data}
+# List of file paths giving eigenvectors
+eigenvec_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenvec",
+  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenvec"
+)
+# List of file paths giving eigen values
+eigenval_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenval",
+  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenval"
+)
+
+# Import PCA data
+eigenvecs <- lapply(names(eigenvec_files), function(name){
+  filename <- eigenvec_files[[name]]
+  read.table(filename, header=TRUE) %>%
+    as_tibble() %>%
+    mutate(
+      dataset = name,
+      FID = as.character(FID),
+      IID = as.character(IID)
+    )
+})
+names(eigenvecs) <- names(eigenvec_files)
+
+eigenvals <- lapply(names(eigenval_files), function(name){
+  filename <- eigenval_files[[name]]
+  read.table(filename, col.names="eigenval", header=FALSE) %>%
+    as_tibble() %>%
+    mutate(
+      eigenval = round(100*(eigenval / sum(eigenval)), 1),
+      dataset = name
+    )
+})
+names(eigenvals) <- names(eigenval_files)
+```
+
+```{r gps-data}
+gps <- read_csv(
+  "01_data/03_parental_genotypes/1135_accessions_updated_coordinates.csv",
+  col_select = c('id', 'latitude', 'longitude'),
+  show_col_types = FALSE
+) %>%  
+  mutate(
+    FID = as.character(id)
+  )
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(gps, by = "FID")
+```
+
+```{r ft12-data}
+# BLUPs for flowering time at 12°C
+ft12 <- list(
+  progeny = read_tsv(
+    "03_processing/06_process_phenotypes/output/flowering_time_blups_F9_combined.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'days_to_flower')
+  ),
+  
+  parents = read_tsv(
+    "03_processing/06_process_phenotypes/output/flowering_time_blups_parents.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'days_to_flower')
+  )
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(ft12$parents, by = "FID")
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  left_join(ft12$progeny, by = "FID")
+
+```
+
+```{r ft12-gwas-data}
+source("02_library/manhattan_plot.R")
+
+
+# Vector of GEMMA output files.
+gemma_output_paths <- Sys.glob(
+  "05_results/16_gemma_ft12/output/no_K/*.assoc.txt"
+)
+# Drop the file with all F9s combined.
+gemma_output_paths <- grep(
+  "F9_combined", gemma_output_paths,
+  invert = TRUE, value = TRUE
+)
+
+
+gwas <- vector("list", length=length(gemma_output_paths))
+names(gwas) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+
+for(f in 1:length(gwas)){
+  gemma_file <- read_tsv(
+    gemma_output_paths[f],
+    # n_max = 1000,
+    col_types = 'cciiiccnnnnnn'
+  ) %>%
+    mutate(
+      log10p = -log10(p_lrt),
+      varexp = beta^2 * af * (1-af)
+    )
+  
+  gwas[[f]] <- gemma_file
+  
+}
+
+# Merge the result files
+merge_gwas <- inner_join(
+  gwas$Parents, gwas$F9_cohort_1,
+  by = c("chr", "ps"),
+  suffix = c("_parents", "")
+) %>%
+  inner_join(
+    gwas$F9_cohort_2,
+    by = c("chr", "ps"),
+    suffix = c("_cohort1", "_cohort2")
+  )
+
+```
+
+## Acknowledgements
+
+```{r acknowledgements, out.width="90%", fig.align='center'}
+dd <- paste0(
+  getwd(),
+  '/07_presentations/250212_wednesday_seminar/ackowledgements.png'
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- Crosses: Polina Novikova, Viktoria Nizhynska, Pamela Korte, Viktor Voronin
+- Phenotyping: Almudena Mollá Moráles, Tal Dahan, Rozi Mkrtchyan, Nataša Simić
+- Remains at large: Magnus Nordborg
+
+## Old London Bridge
+
+```{r london-bridge, out.width="90%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/old_london_bridge.jpg"
+)
+knitr::include_graphics(dd, error=FALSE)
+
+
+```
+
+- Bridges are supported by stanchions
+- Will a stanchion hold a house up?
+
+## How strong is a stanchion?
+
+```{r london-bridge-2, out.width="90%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/old_london_bridge_2.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+
+
+```
+
+- That depends on the stanchion underneath you.
+
+## How strong is a stanchion?
+
+```{r london-bridge-3, out.width="90%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/old_london_bridge_3.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+
+
+```
+
+- That depends on the stanchion underneath you.
+- Also depends on the neighbouring stanchions, in proportion to how close they are.
+
+## GWAS peaks are like stanchions
+
+```{r long-2013-manhattan-plot, out.width="50%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/long_etal_fig2.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- GWAS for genome-size variation in Swedish *A. thaliana*
+- Lots of associated loci in *cis*
+- Statistics can't separate them
+
+## Far apart things can affect each other
+
+```{r menai, out.width="70%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/menai_bridge.jpg"
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- It has stanchions, but also cables spanning the bridge.
+
+## Far apart things can affect each other
+
+```{r menai-2, out.width="70%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/menai_bridge_2.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- It has stanchions, but also cables spanning the bridge.
+- Both local and distant relationships matter
+
+## LD extends between chromosomes
+
+```{r long-2013-heatmap, out.width="40%"}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/long_etal_ld_heatmap.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- Swedish *A. thaliana* highly structured
+- Adaptive traits typically correlated with that structure
+- That makes it hard to distinguish causative loci from confounding
+
+## Overview
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+  - It's hard to find genes for adaptive traits
+
+## Overview
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+  - It's hard to find genes for adaptive traits
+- Goal:
+  - Manipulate LD experimentally
+
+## Overview
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+  - It's hard to find genes for adaptive traits
+- Goal:
+  - Manipulate LD experimentally
+- Overview
+  - Validate that this worked
+
+## Overview
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+  - It's hard to find genes for adaptive traits
+- Goal:
+  - Manipulate LD experimentally
+- Overview
+  - Validate that this worked
+  - Changes in genetics
+  - Changes in phenotypes
+
+## Overview
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+  - It's hard to find genes for adaptive traits
+- Goal:
+  - Manipulate LD experimentally
+- Overview
+  - Validate that this worked
+  - Changes in genetics
+  - Changes in phenotypes
+  - Future plans
+
+# Experimental manipulation of LD | by crossing the heck out of stuff
+
+## Source population
+
+```{r pca-and-map, out.width="70%"}
+
+ggarrange(
+eigenvecs$parents %>%
+  ggplot(aes(x=PC1, y = PC2, colour=latitude)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+    ) +
+  theme_bw(),
+
+
+
+
+map_data('world') %>% 
+  ggplot() +
+  # Plot an empty map of the world
+  # Borders are shown the same colour as the country backgrounds
+  geom_polygon(
+    aes(x=long, y = lat, group = group),
+    fill="gray90", colour="gray70") + 
+  coord_fixed(
+    xlim = range(eigenvecs$parents$longitude, na.rm = TRUE),
+    ylim = range(eigenvecs$parents$latitude, na.rm = TRUE),
+    1.5
+  ) +
+  # Overplot the accessions
+  geom_point(
+    data = eigenvecs$parents ,
+    aes(x=longitude, y = latitude, colour=PC1)) +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    # legend.title = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+    ) +
+      scale_colour_gradient(low = "green", high = "red")
+  
+)
+```
+
+- Swedish *A. thaliana* are highly stratified!
+
+## Experimental manipulation of LD
+
+<div style="float: left; width: 50%;">
+
+```{r cross-design}
+dd <- paste0(
+  getwd(),
+  "/07_presentations/250515_SFB_SAB_presentation/1001_crosses_design.png"
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+- Selfing removes heterozygosity
+- Preserve allele frequencies
+- Halve LD
+- Make stocks a community resource
+
+</div>
+
+
+## Cohorts are fairly balanced
+
+```{r}
+line_names <- eigenvecs$progeny %>%
+  select(FID) %>% 
+  separate(FID,   into = c("cross", "cohort"),  sep="_", remove=FALSE) %>% 
+  separate(cross, into=c('parent1', "parent2"), sep="x", remove=FALSE)
+
+
+# use list as input
+x = list(
+  "Cohort 1" = line_names$cross[line_names$cohort == "rep1"],
+  "Cohort 2" = line_names$cross[line_names$cohort == "rep2"]
+)
+
+# create venn diagram and display all the sets
+ggvenn(x)
+
+
+
+```
+
+- 198 cross combinations are in each cohort
+
+# Validating the genotypes
+
+## Validation tool
+
+- There are many ways for mistakes to happen!
+- `ibdpainting`: visual tool to check ancestry across genome
+- Compare each F8 to 1163 candidate parents in the 1001 genomes project
+
+## F8 that matches its parents
+
+```{r good-example}
+path_plot("1_A3_plot_ibd.png")
+
+```
+
+- Most samples look like this
+
+## Residual heterozygosity
+
+```{r residual-heterozygosity}
+path_plot('1_C12_plot_ibd.png')
+```
+
+- 53 samples (12.4%)
+
+## ????
+
+```{r self-pollinated}
+path_plot('1_B8_plot_ibd.png')
+```
+
+
+## Offspring is actually self-pollinated
+
+```{r, ref.label="self-pollinated"}
+
+```
+
+- Only one other example
+
+
+## ????
+
+```{r labels-swapped}
+path_plot('2_H4_plot_ibd.png')
+```
+
+## Labels are swapped
+
+```{r, ref.label="labels-swapped"}
+
+```
+
+- Doesn't match expected parents, but matches something else
+- 13 lines are mixed up
+
+## Missing haplotypes
+
+```{r missing-haplotypes}
+path_plot('2_C11_plot_ibd.png')
+```
+
+- Correct, but some haplotypes don't match
+- Seed stock probably segregating!
+
+
+## Of 427 F8s...
+
+- 351 lines look good. *That's grand.*
+
+## Of 427 F8s...
+
+- 351 lines look good. *That's grand.*
+- 42 lines correct, but have haplotypes that don't match the parent. *Sequence at high coverage, and worry about this.*
+- 13 lines have swapped labels. *Swap them back.*
+
+## Of 427 F8s...
+
+- 351 lines look good. *That's grand.*
+- 42 lines correct, but have haplotypes that don't match the parent. *Sequence at high coverage, and worry about this.*
+- 13 lines have swapped labels. *Swap them back.*
+- 2 lines are self-pollinated. *Ignore.*
+- 8 are incorrect.
+- 7 samples have no data. *Repeat.*
+
+## Of 427 F8s...
+
+- 351 lines look good. *That's grand.*
+- 42 lines correct, but have haplotypes that don't match the parent. *Sequence at high coverage, and worry about this.*
+- 13 lines have swapped labels. *Swap them back.*
+- 2 lines are self-pollinated. *Ignore.*
+- 8 are incorrect.
+- 7 samples have no data. *Repeat.*
+- 4 "ambiguous Swedes" (Swedish parents, but I don't know who)
+
+# Genetic variation after random mating
+
+## Structure reduced
+
+```{r pca-basic}
+ggarrange(
+
+  eigenvecs$parents %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+
+  eigenvecs$progeny %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+      title = "F8s"
+    ) +
+    theme_bw()
+)
+```
+
+- Parents from published data, with high coverage
+- F8 genotypes imputed from parents
+
+## Structure reduced
+
+```{r, ref.label="pca-basic"}
+
+```
+
+- PC2 isolates samples where parental genotypes are poor
+- Otherwise, F8s less stratified than parents.
+
+## Structure reduced
+
+```{r eigenvalues}
+rbind(
+  eigenvals$parents,
+  eigenvals$progeny
+) %>%
+  mutate(
+    PC = rep(1:20, 2)
+  ) %>%
+  ggplot(aes(x = PC, y=eigenval)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Eigenvalue"
+  ) +
+  facet_grid(~ dataset)
+```
+
+- Parents show a few strong PCs
+- F8s distributed across PCs
+
+## F8s are well mixed
+
+```{r pca-f8s-mixed}
+eigenvecs$progeny %>%
+  mutate(cohort = case_when(
+    grepl("_rep1", FID) ~ "Cohort 1",
+    grepl("_rep2", FID) ~ "Cohort 2",
+    .default = NA
+  )) %>%
+  ggplot(aes(x=PC1, y = PC2, colour = cohort)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+    title = "F8s by cohort"
+  ) +
+  theme_bw()
+```
+
+## LD decays faster
+
+```{r ld-decay}
+# Summarise LD within bins.
+
+# Tom Ellis, adapting from code by Jinliang Yang:
+# https://jyanglab.com/AGRO-932/chapters/a2.1-qg/rex11_gwas2.html#12
+
+library("data.table")
+library(plyr)
+library(tidyverse)
+# library(ggplot2)
+
+ld_files <- list(
+  parents='05_results/02_ld_decay/output/parental_lines.ld.gz',
+  progeny="05_results/02_ld_decay/output/F8_phased_imputed.ld.gz"
+)
+
+
+# Window size to average over
+bin_size = 100
+ld_bins <- vector('list', 3)
+names(ld_bins) <- names(ld_files)
+for(name in names(ld_files)){
+  # Get mean r2 within 100bp windows.
+  filename <- ld_files[[name]]
+  df <- fread(filename, data.table = FALSE) %>%
+    mutate(
+      dist = BP_B - BP_A,
+      bin  = round(dist / bin_size, 0)
+    )
+
+  ld_bins[[name]] <- ddply(
+    df, .(bin), summarise,
+    meanr2 = mean(R2)
+  ) %>%
+    mutate(
+      Generation = case_when(
+        name == "parents" ~ "Parents",
+        name == "progeny" ~ "F8s",
+        .default=NA
+      )
+    )
+}
+do.call(what = 'rbind', ld_bins) %>%
+  ggplot(aes(x=bin/10, y = meanr2, colour=Generation)) +
+  geom_point() +
+  labs(
+    x = "Physical distance (kb)",
+    y = expression(paste('Mean ', r^{2}))
+  ) +
+  lims(
+    # x=c(0,25),
+    y=c(0,0.6)
+    ) +
+  theme_bw()
+```
+
+- Mean LD between 100bp windows
+- They don't equalise within 100kb
+
+## Long-range LD reduced
+
+```{r long-range-ld-heatmap}
+#' Plot long-range LD in the parents and progeny
+#'
+#' Creates a matrix of positions within and between chromosomes as
+#' a facet grid and plots positions with substantial LD in the
+#' parents and all F8 genotypes.
+#'
+#' Tom Ellis, 5th May 2025
+
+# CSV files for the parents and F8s giving Chr, position and r2
+# This is for loci with a minimum r2; see previous scripts in this directory
+parents <- read_csv(
+  "05_results/03_long_range_ld/output/parents_snps_in_LD.csv",
+  col_types = 'ccd'
+  ) %>%
+  mutate(
+    generation = "parents"
+  )
+progeny <- read_csv(
+  "05_results/03_long_range_ld/output/progeny_snps_in_LD.csv",
+  col_types = 'ccd'
+  ) %>%
+  mutate(
+    generation = "progeny"
+  )
+
+# Join LD datasets so they have a common coordindate system.
+r2_table <- rbind(parents, progeny) %>%
+  separate(i, into=c("chr_i", 'pos_i'), sep=":") %>%
+  separate(j, into=c("chr_j", 'pos_j'), sep=":")
+
+# Set a minimum value of r2 to include in the plot.
+minimum_r2_to_plot <- 0.5
+
+r2_table %>%
+  # Set a minimum r2 to plot
+  filter(r2 > minimum_r2_to_plot | r2 > minimum_r2_to_plot) %>%
+  # To get the values for the progeny to plot in the lower-right
+  # corner, swap the x and y coordinates (pos_i and pos_j).
+  # This is done by creating temporary variables chr_i_tmp and pos_i_tmp
+  mutate(
+    chr_i_tmp = chr_i,
+    pos_i_tmp = pos_i
+  ) %>%
+  # Now swap the values of pos_i and pos_j, and chr_i and chr_j
+  # for the progeny generation
+  mutate(
+    pos_i = ifelse(generation == "progeny", pos_j,     pos_i),
+    pos_j = ifelse(generation == "progeny", pos_i_tmp, pos_j),
+    chr_i = ifelse(generation == "progeny", chr_j,     chr_i),
+    chr_j = ifelse(generation == "progeny", chr_i_tmp, chr_j),
+  ) %>%
+  # Make base positions numeric and on a megabase scale
+  mutate(
+    pos_i = as.numeric(pos_i)/1e6,
+    pos_j = as.numeric(pos_j)/1e6,
+  ) %>%
+  # Plot a 5x5 grid of LD across the genome
+  ggplot(aes(pos_i, pos_j, colour=r2)) +
+  geom_point(size=0.3) +
+  labs(
+    x = "Position (Mb)",
+    y = "Position (Mb)"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  ) +
+  scale_color_binned(type="viridis", direction=-1, n.breaks = 6) +
+  facet_grid(fct_rev(chr_j) ~ chr_i, scales="free")
+```
+
+- Pairs of loci with LD > 0.5.
+- (Loci have been pruned for cis LD to reduce comparisons)
+
+## LD within and between chromosomes
+
+```{r ld-within-between}
+r2_table %>%
+  mutate(
+    within_between = ifelse(chr_i == chr_j, "Within", "Between"),
+    within_between = factor(within_between, levels = c("Within", "Between"))
+  ) %>%
+  # filter(r2 > 0.1) %>%
+  ggplot(aes(x=r2, colour=generation)) +
+  geom_freqpoly() +
+  theme_bw() +
+  labs(
+    x = "N. pairs of loci"
+  ) +
+  facet_grid(~within_between)
+```
+
+- Parents: almost as much LD between as within chromosomes
+- F8s: peak of between-chromosome LD around 0.2
+
+## Residual LD in F8s
+
+```{r}
+r2_table %>%
+  mutate(
+    within_between = ifelse(chr_i == chr_j, "Within", "Between"),
+    within_between = factor(within_between, levels = c("Within", "Between"))
+  ) %>%
+  filter(
+    generation == "progeny", within_between == "Between"
+  ) %>%
+  ggplot(aes(x=r2, )) +
+  geom_freqpoly() +
+  theme_bw() +
+  labs(
+    y = "N. pairs of loci",
+    title = "Between-chromosome LD in F8s"
+  )
+
+```
+
+- Thousands of pairs of loci in LD between chromosomes
+- (cf millions in the parents)
+
+## Allele frequencies (largely) preserved
+
+```{r maf-scatter-plots}
+#' An attempt to retrieve allele frequencies from GWAS results
+
+ggarrange(
+  merge_gwas %>%
+    ggplot(aes(x = af_parents, y = af_cohort1)) +
+    geom_point(size = 0.1) +
+    theme_classic() +
+    labs(
+      x = 'Allele freq. (parents)',
+      y = 'Allele freq. (F8 cohort 1)',
+      title = 'Parents vs. F8 cohort 1'
+    ) +
+    geom_abline(intercept = 0, slope = 1, col = 'red'),
+  
+  merge_gwas %>%
+    ggplot(aes(x = af_parents, y = af_cohort2)) +
+    geom_point(size = 0.1) +
+    theme_classic() +
+    labs(
+      x = 'Allele freq. (parents)',
+      y = 'Allele freq. (F8 cohort 2)',
+      title = 'Parents vs. F8 cohort 2'
+    ) +
+    geom_abline(intercept = 0, slope = 1, col = 'red'),
+  
+  merge_gwas %>%
+    ggplot(aes(x = af_cohort1, y = af_cohort2)) +
+    geom_point(size = 0.1) +
+    theme_classic() +
+    labs(
+      x = 'Allele freq. (F8 cohort 1)',
+      y = 'Allele freq. (F8 cohort 2)',
+      title = 'Both F8 cohorts'
+    ) +
+    geom_abline(intercept = 0, slope = 1, col = 'red'),
+  
+  nrow = 1, ncol=3
+  
+)
+```
+
+- F8s more similar to each other than they are to the parents
+
+## Genotypic changes
+
+- In the F8s:
+  - Short-range LD decays faster in F8s
+  - Long-range LD is mostly gone
+  - Preserve allele frequencies
+
+# Phenotypic variation | Flowering time at 12°C
+
+## Common-garden phenotyping experiment
+
+- 217 parents + 427 F9  = 636 lines
+  - 3 replicates each
+  - Cohorts, lines randomised within reps
+  
+## Common-garden phenotyping experiment
+
+- 217 parents + 427 F9  = 636 lines
+  - 3 replicates each
+  - Cohorts, lines randomised within reps
+- Phenotypes:
+  - Days to flower
+  - Rosette size at 21 days (growth rate)
+  - Seed size (pending)
+
+## No change in mean flowering time
+
+```{r}
+rbind(ft12$parents, ft12$progeny) %>% 
+  mutate(
+    cohort = case_when(
+      grepl("rep1", FID) ~ "Cohort 1",
+      grepl("rep2", FID) ~ "Cohort 2",
+      .default = "Parents"
+      )
+    ) %>% 
+  ggplot(aes(x = days_to_flower, colour = cohort)) +
+  geom_freqpoly() +
+  labs(
+    x = "Days to first flower (BLUP)",
+    y = "Number of lines"
+  ) +
+  theme(
+    legend.title = element_blank()
+  )
+```
+
+## Strong, consistent heritability
+
+```{r heritability, eval = TRUE}
+# Collate and format raw flowering-time data
+source("03_processing/06_process_phenotypes/03_flowering_time.R")
+
+pops <- c("parents", "rep1", "rep2")
+
+# Empty list to store variance components for the three groups
+list_pve <- vector('list', 3)
+names(list_pve) <- pops
+
+
+for (group in pops){
+
+  # Model flowering time as a function of genotype, cohort and tray
+  mod_ft <- glmer(
+    days_to_flower ~  (1 | genotype) + (1| replicate/tray),
+    data=flowering_time, family = 'poisson',
+    subset = cohort==group
+  )
+  # Extract variance components on the expected scale
+  vc <- as_tibble(VarCorr(mod_ft))
+  vc$pve <- vc$vcov / sum(vc$vcov)
+
+  # Use QgGLMM to get variance components on the data scale (including Poisson noise)
+  # Each QGparams output gives the variance explained by each component divided
+  # by total phenotypic variance on the data scale.
+  vc$pve_data_scale <- NA
+  for( i in 1:nrow(vc) ){
+    vc$pve_data_scale[i] <- QGparams(
+      mu = fixef(mod_ft),
+      var.a = vc$vcov[i],
+      var.p = sum(vc$vcov),
+      model = 'Poisson.log',
+      verbose = FALSE
+    )$h2.obs
+  }
+  list_pve[[group]] <- vc$pve_data_scale
+}
+
+# Data from with a row for the three groups, and columns for var explained by
+# each component
+h2 <- do.call('rbind', list_pve )
+colnames(h2) <- c('genotype', 'tray', 'replicate')
+h2 <- as_tibble(h2, rownames = "group")
+
+# Plot a stacked bar chart with group on the x and var explained on the y
+# Results are nearly identical for the three groups
+# Genetics explains about 80% of the variance.
+h2 %>%
+  pivot_longer(genotype:replicate, names_to = "component", values_to = "pve") %>%
+  ggplot(aes(x = group, y = pve, fill=component)) +
+  geom_col()+
+  lims(
+    y = c(0,1)
+  ) +
+  labs(
+    y = "Prop. variance explained"
+  ) +
+  theme(
+    axis.title.x = element_blank()
+  )
+
+```
+
+- ~80% variance explained by differences between lines
+- (Broad-sense heritability)
+
+## Flowering time
+
+- Phenotypes look similar
+  - Consistent with a common genetic basis
+  - Do we get the consistent or better GWAS hits?
+
+## P-value inflation is halved
+
+```{r cohort-qqplot}
+
+# For multiple GWAS studies/conditions:
+qq_plot_multiple <- function(pvalue_list, labels, colors, main="") {
+    # Create data frame for plotting
+    plot_data <- data.frame()
+    
+    for(i in 1:length(pvalue_list)) {
+        pvals <- na.omit(pvalue_list[[i]])
+        observed <- -log10(sort(pvals))
+        expected <- -log10(ppoints(length(pvals)))
+        
+        plot_data <- rbind(plot_data, 
+                          data.frame(expected = expected,
+                                   observed = observed,
+                                   group = labels[i]))
+    }
+    
+    # Create plot
+    ggplot(plot_data, aes(x=expected, y=observed, color=group)) +
+        geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
+        geom_point(alpha=0.7) +
+        scale_color_manual(values=colors) +
+        labs(x=expression(Expected~~-log[10](p)), 
+             y=expression(Observed~~-log[10](p)),
+             title=main) +
+        theme_bw() +
+        theme(legend.title=element_blank())
+}
+
+# For multiple studies/conditions:
+pvalue_list <- list(
+    parents = merge_gwas$p_lrt_parents,
+    cohort1 = merge_gwas$p_lrt_cohort1,
+    cohort2 = merge_gwas$p_lrt_cohort2
+)
+
+labels <- c("Parents", "F9 cohort 1", "F9 cohort 2")
+colors <- c("#1b9e77", "#d95f02", "#7570b3")  # ColorBrewer palette
+
+qq_plot_multiple(pvalue_list, labels, colors)
+```
+
+- Lambda statistic measures inflation
+  - Parents: $\lambda > 4$
+  - F9s: $\lambda \sim 2$
+  
+## There's residual inflation
+
+```{r, ref.label="cohort-qqplot"}
+
+```
+
+- Residual LD?
+- Strong polygenicity?
+- Epistasis?
+
+<!-- ## Associations don't really overlap -->
+
+<!-- ```{r create-mh} -->
+
+<!-- plot_titles <- c( -->
+<!--   "Parents", -->
+<!--   "F9 cohort 1", -->
+<!--   "F9 cohort 2" -->
+<!-- ) -->
+
+<!-- mh_plots <- vector('list', length(gemma_output_paths)) -->
+
+<!-- for( i in 1:3){ -->
+<!--   mh_plots[[i]] <- manhattan_plot( -->
+<!--     chr=gwas[[i]]$chr, -->
+<!--     pos=gwas[[i]]$ps, -->
+<!--     pvalue=gwas[[i]]$p_lrt, -->
+<!--     signif_cutoff = 0.05, fraction_to_keep = 0.01, -->
+<!--     title = plot_titles[i] -->
+<!--   ) -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- ```{r mh-noK, out.width="90%"} -->
+<!-- ggarrange( -->
+<!--   mh_plots[[1]], -->
+<!--   mh_plots[[2]], -->
+<!--   mh_plots[[3]], -->
+<!--   nrow = 1, ncol=3 -->
+<!-- ) -->
+<!-- ``` -->
+
+
+## P-values are partially correlated
+
+```{r cohort-pvals, out.width="90%"}
+
+# Spearman rank correlations for p-value distributions
+pval_correlations <- c(
+  cor(merge_gwas$log10p_parents, merge_gwas$log10p_cohort1, method='s'),
+  cor(merge_gwas$log10p_parents, merge_gwas$log10p_cohort2, method='s'),
+  cor(merge_gwas$log10p_cohort1, merge_gwas$log10p_cohort2, method='s')
+)
+pval_correlations <- sapply(pval_correlations, round, 3)
+
+
+ggpubr::ggarrange(
+  merge_gwas %>%
+    ggplot(aes(x = log10p_parents, y=log10p_cohort1 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F9 cohort 1)",
+      title = "Parents vs F9 cohort 1",
+      subtitle = paste("\u03c1 = ", pval_correlations[1])
+    ),
+  merge_gwas %>%
+    ggplot(aes(x = log10p_parents, y=log10p_cohort2 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F9 cohort 2)",
+      title = "Parents vs F9 cohort 2",
+      subtitle = paste("\u03c1 = ", pval_correlations[2])
+    ),
+  merge_gwas %>%
+    ggplot(aes(x = log10p_cohort1, y=log10p_cohort2 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "-log10 p (F9 cohort 1)",
+      y = "-log10 p (F9 cohort 2)",
+      title = "Cohorts 1 and 2",
+      subtitle = paste("\u03c1 = ", pval_correlations[3])
+    ),
+  
+  nrow=1, ncol=3
+)
+
+```
+
+## Parental effect sizes overdispersed
+
+```{r cohort-betas, out.width="90%"}
+# Spearman rank correlations for effect-size distributions
+beta_correlations <- c(
+  cor(merge_gwas$beta_parents, merge_gwas$beta_cohort1, method='s'),
+  cor(merge_gwas$beta_parents, merge_gwas$beta_cohort2, method='s'),
+  cor(merge_gwas$beta_cohort1, merge_gwas$beta_cohort2, method='s')
+)
+beta_correlations <- sapply(beta_correlations, round, 3)
+
+
+
+ggpubr::ggarrange(
+  merge_gwas %>%
+    ggplot(aes(x = beta_parents, y=beta_cohort1 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "SNP effect (parents)",
+      y = "SNP effect (F9 cohort 1)",
+      title = "Parents vs F9 cohort 1",
+      subtitle = paste("\u03c1 = ", beta_correlations[1])
+    ),
+  
+  merge_gwas %>%
+    ggplot(aes(x = beta_parents, y=beta_cohort2 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "SNP effect (parents)",
+      y = "SNP effect (F9 cohort 2)",
+      title = "Parents vs F9 cohort 2",
+      subtitle = paste("\u03c1 = ", beta_correlations[2])
+    ),
+  
+  merge_gwas %>%
+    ggplot(aes(x = beta_cohort1, y=beta_cohort2 )) +
+    geom_point()+
+    coord_fixed() +
+    labs(
+      x = "SNP effect (F9 cohort 1)",
+      y = "SNP effect (F9 cohort 2)",
+      title = "Cohorts 1 and 2",
+      subtitle = paste("\u03c1 = ", beta_correlations[3])
+    ),
+  
+  nrow=1, ncol=3
+)
+```
+
+- Parents show a small number of loci with huge effects
+- They disappear in the F9s
+
+## Why are there outliers?
+
+```{r, ref.label="cohort-betas", out.width="90%"}
+
+```
+
+- Not rare alleles
+- Artefact?
+
+## Why are there outliers?
+
+```{r, ref.label="london-bridge-3", out.width="90%"}
+
+```
+
+- Could be individually small-effect loci in LD
+  - Combined effect substantial
+- Much to check
+
+## Future work
+
+- Other phenotypes
+- Does a kinship matrix do what we think it does?
+- Epistasis
+
+# Conclusions
+
+## Summary
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+- Manipulate LD experimentally
+
+## Summary
+
+- Motivation:
+  - Linkage disequilibrium confounds GWAS signal
+  - This LD can be within *and between* chromosomes
+- Manipulate LD experimentally
+- Big drop in LD
+- Flowering time phenotypes consistent
+- GWAS surprisingly inconsistent
+- Many stones left to turn...

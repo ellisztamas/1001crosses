@@ -1,0 +1,755 @@
+---
+title: "Linkage disequilibrium in a structured *Arabidopsis thaliana* population before and after random mating"
+subtitle: "Sex makes GWAS easier"
+author: "Tom Ellis"
+date: "`r Sys.Date()`"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    css: ../gmi.css
+    incremental: false 
+---
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+
+<script>
+$(document).ready(function() {
+$('slide:not(.title-slide, .backdrop, .segue)').append('<footer></footer>');    
+$('footer').attr('label', 'www.tom-ellis.info');
+
+})
+</script>
+
+<style>
+footer:after {
+font-size: 12pt;
+content: attr(label);
+position: absolute;
+bottom: 1px;
+right: 60px;
+line-height: 1.9;
+display: block;
+color: #007243
+}
+</style>
+
+```{r setup, include=FALSE}
+
+options(bitmapType='cairo')
+options(dplyr.summarise.inform = FALSE)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache=TRUE, cache.lazy=TRUE,
+  fig.align='center',
+  warning = F,
+  dev=c('png'),
+  message=FALSE,
+  out.width="60%"
+)
+options(knitr.graphics.error = FALSE)
+        
+library("tidyverse")
+library('ggpubr')
+library('knitr')
+
+source("02_library/manhattan_plot.R")
+
+theme_set(theme_bw())
+
+path_plot <- function(filename){
+  include_graphics(
+    paste0(
+      '/groups/nordborg/projects/crosses/tom/03_processing/03_validate_genotypes/output/ibdpainting/',
+      filename )
+  )
+}
+```
+
+
+```{r import-data, include=FALSE}
+
+ft12_files <- Sys.glob(
+  "05_results/16_gemma_ft12/output/*/*.assoc.txt"
+)[c(2,3,4)]
+
+ 
+names(ft12_files) <- c(
+  'parents_noK',
+  'F9_cohort1_noK',
+  'F9_cohort2_noK'
+  )
+
+ft12_gwas <- lapply(ft12_files, function(filename){
+  read_tsv(filename, show_col_types = FALSE) %>%
+    add_base_pair_positions()
+})
+
+plot_titles <- c(
+  "Parents, no relatedness matrix",
+  "F9 cohort 1, no relatedness matrix",
+  "F9 cohort 2, no relatedness matrix"
+)
+
+mh_plots <- vector('list', length(ft12_files))
+names(mh_plots) <- names(ft12_gwas)
+
+for( i in 1:length(ft12_gwas)){
+  mh_plots[[i]] <- manhattan_plot(
+    chr=ft12_gwas[[i]]$chr,
+    pos=ft12_gwas[[i]]$ps,
+    pvalue=ft12_gwas[[i]]$p_lrt,
+    signif_cutoff = 0.05, fraction_to_keep = 0.001,
+    title = plot_titles[i]
+  )
+}
+
+
+
+```
+
+
+## Overview
+
+- What is linkage disequilibrium (LD)?
+- Experiment to manipulate LD
+- Validate the crosses
+- Initial results
+
+## Acknowledgements
+
+```{r acknowledgements, out.width="90%", fig.align='center'}
+dd <- paste0(
+  getwd(),
+  '/07_presentations/250212_wednesday_seminar/ackowledgements.png'
+)
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- Crosses: Polina Novikova, Viktoria Nizhynska, Pamela Korte, Viktor Voronin
+- Phenotyping: Almudena Mollá Moráles, Tal Dahan, Rozi Mkrtchyan, Nataša Simić
+- Remains at large: Magnus Nordborg
+
+
+# What is linkage disequilibrium? | It's a bit like having a regional dialect
+
+## Biscuits? Cookies?
+
+```{r biscuits, out.width="60%"}
+dd <- paste0(getwd(), "07_presentations/250212_wednesday_seminar/biscuits.jpg")
+knitr::include_graphics(dd, error=FALSE)
+```
+
+## Diaper? Nappy?
+
+```{r nappy, out.width="60%"}
+dd <- paste0(getwd(), '/07_presentations/250212_wednesday_seminar/nappy.jpg')
+knitr::include_graphics(dd, error=FALSE)
+```
+
+## Autumn? Fall?
+
+```{r autumn, out.width="60%"}
+dd <- paste0(getwd(), "07_presentations/250212_wednesday_seminar/autumn.jpg")
+knitr::include_graphics(dd, error=FALSE)
+```
+
+## ????
+
+```{r medical-bill, out.width="90%"}
+dd <- paste0(getwd(), "07_presentations/250212_wednesday_seminar/medical_bill.png")
+knitr::include_graphics(dd, error=FALSE)
+```
+
+"Medical bills are the leading cause of personal bankruptcy"
+
+## Different words in different places
+
+* cookie - *biscuit*
+* diaper - *nappy*
+* fall - *autumn*
+* Medical bills - *????*
+
+<!-- Variants of the same thing the same thing -->
+<!--   Like alleles at a single locus -->
+
+## Vocabulary is correlated
+
+* cookie - *biscuit*
+* diaper - *nappy*
+* fall - *autumn*
+* Medical bills - *????*
+
+## Vocabulary is correlated
+
+<div style="float: left; width: 50%;">
+
+* cookie - *biscuit*
+* diaper - *nappy*
+* fall - *autumn*
+* Medical bills - *????*
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+- You exchange words mostly with your neighbours
+- Word use is correlated with other words, and geography
+
+</div>
+
+<!-- It doesn't have to be like that -->
+<!-- sick - ill -->
+<!-- schedule - timetable -->
+<!-- crazy - mad -->
+
+## Alleles are like vocabulary
+
+<div style="float: left; width: 50%;">
+
+```{r sweden-map}
+dd <- paste0(getwd(), "07_presentations/250212_wednesday_seminar/map.png")
+knitr::include_graphics(dd, error=FALSE)
+```
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+- Swedish *A. thaliana* from Long *et al.* (2013)
+- Complex history
+- Distances are large
+- Dispersal is short
+
+</div>
+
+
+## Alleles are like vocabulary
+
+<div style="float: left; width: 50%;">
+
+```{r, ref.label="sweden-map"}
+```
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+- Swedish *A. thaliana* from Long *et al.* (2013)
+- Complex history
+- Distances are large
+- Dispersal is short
+- **Most mating is local**
+</div>
+
+## Alleles are correlated
+
+```{r ld-heatmap, out.width="50%"}
+dd <- paste0(
+  getwd(),
+  "07_presentations/250212_wednesday_seminar/long_etal_ld_heatmap.png"
+  )
+knitr::include_graphics(dd, error=FALSE)
+
+```
+
+- Correlations > 0.6 between alleles on different chromosomes
+- Unrelated variants are strongly correlated!
+
+## Vocabularly predicts behaviour
+
+```{r drinking-tea}
+dd <- paste0(
+  getwd(),
+  "07_presentations/250212_wednesday_seminar/drinking_tea.jpg"
+  )
+knitr::include_graphics(dd, error=FALSE)
+```
+
+* cookie - *biscuit*
+* diaper - *nappy*
+* fall - *autumn*
+
+## Vocabularly predicts behaviour
+
+```{r guns, out.height="60%"}
+dd <- paste0(
+  getwd(),
+  "07_presentations/250212_wednesday_seminar/guns.jpg"
+  )
+knitr::include_graphics(dd, error=FALSE)
+```
+
+* cookie - *biscuit*
+* diaper - *nappy*
+* fall - *autumn*
+
+## Correlations confound associations
+
+- Variants are confounded:
+  - with one another
+  - with other things
+- This can lead to dubious conclusions
+  
+## Structure is confounded with traits
+
+<div style="float: left; width: 50%;">
+
+```{r, ref.label="sweden-map"}
+```
+
+</div>
+
+<div style="float: right; width: 50%;">
+
+- Structure correlated with ecology
+- LD correlated with traits of interest
+- Traits and structure are indistinguishable
+
+</div>
+  
+
+## Correlations confound associations
+
+- Variants are confounded:
+  - with one another
+  - with other things
+- This can lead to dubious conclusions
+- To alleviate this:
+  - adjust statistically
+  - design experiments
+  
+
+<!-- ## Flowering time in Sweden -->
+
+<!-- ```{r ft12-mh-qq} -->
+
+<!-- ggarrange( -->
+<!--   mh_plots$parents_noK, -->
+<!--   qqman::qq(ft12_gwas$parents_noK$p_lrt, main = 'QQ plot'), -->
+<!--   nrow=1, ncol=2 -->
+<!-- ) -->
+<!-- ``` -->
+
+# Crossing experiment
+
+## 1001 crosses
+
+- 217 Swedish accessions
+- One round of random mating
+- Selfing for 8 generations
+- 427 lines
+  - 2 (mostly) replicate cohorts
+  
+## 1001 crosses
+
+- 217 Swedish accessions
+- One round of random mating
+- Selfing for 8 generations
+- 427 lines
+  - 2 (mostly) replicate cohorts
+- Expect:
+  - Retain allele frequencies
+  - Halve linkage disequilibrium
+
+## F8s retain diversity
+
+```{r af-correlation}
+gwas.result <- inner_join(
+  ft12_gwas$parents_noK, 
+  ft12_gwas$F9_cohort1_noK, 
+  suffix = c('.cross', '.parent'), by = c('chr', 'ps')
+  )
+
+gwas.result %>%
+  ggplot(aes(x = af.parent, y = af.cross)) +
+  geom_point(size = 0.1) +
+  theme_classic() +
+  labs(
+    x = 'Parents',
+    y = 'F8 (cohort 1)',
+    title = 'Minor allele frequencies'
+    ) +
+  geom_abline(intercept = 0, slope = 1, col = 'red')
+```
+
+- Allele frequencies remain before and after random mating
+
+## Structure partially reduced
+
+```{r pca}
+library("tidyverse")
+
+library('ggpubr')
+
+# List of file paths giving eigenvectors
+eigenvec_files <- list(
+  rep1 = "05_results/01_pca/output/F8_snp_matrix_purged_rep1.eigenvec",
+  rep2 = "05_results/01_pca/output/F8_snp_matrix_purged_rep2.eigenvec",
+  parents = "05_results/01_pca/output/parental_snp_matrix.eigenvec"
+)
+# List of file paths giving eigen values
+eigenval_files <- list(
+  rep1 = "05_results/01_pca/output/F8_snp_matrix_purged_rep1.eigenval",
+  rep2 = "05_results/01_pca/output/F8_snp_matrix_purged_rep2.eigenval",
+  parents = "05_results/01_pca/output/parental_snp_matrix.eigenval"
+)
+
+# Import PCA data
+eigenvecs <- lapply(names(eigenvec_files), function(name){
+  filename <- eigenvec_files[[name]]
+  read.table(filename, header=TRUE) %>%
+    as_tibble() %>%
+    mutate(
+      dataset = name
+    )
+})
+eigenvals <- lapply(names(eigenval_files), function(name){
+  filename <- eigenval_files[[name]]
+  read.table(filename, col.names="eigenval", header=FALSE) %>%
+    as_tibble() %>%
+    mutate(
+      eigenval = round(100*(eigenval / sum(eigenval)), 1),
+      dataset = name
+    )
+})
+
+ggarrange(
+  eigenvecs[[3]] %>%
+    ggplot(aes(x=PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[3]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[3]]$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+
+  eigenvecs[[1]] %>%
+    ggplot(aes(x=-PC1, y = PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[1]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[1]]$eigenval[2], "%)"),
+      title = "F8 (rep. 1)"
+    ) +
+    theme_bw(),
+
+  eigenvecs[[2]] %>%
+    ggplot(aes(x=-PC1, y = -PC2)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals[[2]]$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals[[2]]$eigenval[2], "%)"),
+      title = "F8 (rep. 2)"
+    ) +
+    theme_bw(),
+
+  ncol =3
+)
+```
+
+- Principal component analysis of genetic variation
+- Substantial structure remains
+
+
+## Less long-range LD
+
+```{r new-ld-heatmap}
+
+dd <- paste0(
+  getwd(),
+  "05_results/02_ld_decay/output/plot_LD_matrix.png"
+  )
+knitr::include_graphics(dd, error=FALSE)
+```
+
+- LD > 0.1 between 10,000 SNPs
+- Lower left: parents; Upper right: F8s
+
+## 1001 crosses
+
+- GWAS panel that 
+  - retains natural allele frequencies
+  - with reduced LD
+- Make this a community resource
+  - Sequence F8s
+  - Validate ancestry
+  - Phenotype F9s
+  
+# Validating the genotypes
+
+## Validation tool
+
+- There are many ways for mistakes to happen!
+- `ibdpainting`: visual tool to check ancestry across genome
+- Compare each F8 to 1163 candidate parents in the 1001 genomes project
+
+## F8 that matches its parents
+
+```{r good-example}
+path_plot("1_A3_plot_ibd.png")
+
+```
+
+- Most samples look like this
+
+## Residual heterozygosity
+
+```{r residual-heterozygosity}
+path_plot('1_C12_plot_ibd.png')
+```
+
+- 53 samples (12.4%)
+
+## ????
+
+```{r self-pollinated}
+path_plot('1_B8_plot_ibd.png')
+```
+
+
+## Offspring is actually self-pollinated
+
+```{r, ref.label="self-pollinated"}
+
+```
+
+- Only one other example
+
+
+## ????
+
+```{r labels-swapped}
+path_plot('2_H4_plot_ibd.png')
+```
+
+## Labels are swapped
+
+```{r, ref.label="labels-swapped"}
+
+```
+
+- Doesn't match expected parents, but matches something else
+- 6 lines are mixed up
+
+
+## ????
+
+```{r one-parent-nir}
+path_plot('1_D8_plot_ibd.png')
+```
+
+## Expected parents not in the 1001 genomes
+
+```{r, ref.label="one-parent-nir"}
+
+```
+
+- Accessions 1137 and 1074 are not in the reference panel
+- 8 F8s are derived from those parents
+
+## ????
+
+```{r ambiguous-swap}
+path_plot('1_G10_plot_ibd.png')
+```
+
+## One parent probably wrong
+
+```{r, ref.label="ambiguous-swap"}
+
+```
+
+33 samples like this
+
+## Missing haplotypes
+
+```{r missing-haplotypes}
+path_plot('2_C11_plot_ibd.png')
+```
+
+- Correct, but some haplotypes don't match
+- Seed stock probably segregating!
+
+
+## Of 427 F8s...
+
+- 322 lines look good. *That's grand.*
+
+## Of 427 F8s...
+
+- 322 lines look good. *That's grand.*
+- 2 lines are self-pollinated. *Ignore.*
+- 17 samples have no data. *Repeat.*
+- 8 lines are from 1137 and/or 1074. *Sequence those parents.*
+- 6 lines have swapped labels. *Swap them back.*
+
+## Of 427 F8s...
+
+- 322 lines look good. *That's grand.*
+- 2 lines are self-pollinated. *Ignore.*
+- 17 samples have no data. *Repeat.*
+- 8 lines are from 1137 and/or 1074. *Sequence those parents.*
+- 6 lines have swapped labels. *Swap them back.*
+- 33 lines have an unknown parent. *Sequence at high coverage.*
+- 42 lines have haplotypes that don't match the parent. *Sequence at high coverage, and worry about this.*
+
+
+# Sex make GWAS easier | Well, does it?
+
+## Phenotyping experiment
+
+- 638 parental and F9 lines
+- 3 replicates each
+- Grown at 12°C
+- Measured:
+  - Days to flower
+  - Rosette size at 21 days
+  - Seed size (ongoing)
+
+## Flowering time heritability
+
+```{r h2-ft12}
+#' Calculate broad-sense heritability for flowering time
+#'
+#' This collates raw flowering time data, estimates variance explained by
+#' genetics and experimental design, then expresses these estimates as a proportion
+#' of total phenotypic variation on the scale of the data data.
+
+
+library('lme4')
+library('QGglmm')
+
+# Collate and format raw flowering-time data
+source("01_data/05_phenotype_expt/format_flowering_time_data.R")
+
+pops <- c("parents", "rep1", "rep2")
+
+# Empty list to store variance components for the three groups
+list_pve <- vector('list', 3)
+names(list_pve) <- pops
+
+
+for (group in pops){
+
+  # Model flowering time as a function of genotype, cohort and tray
+  mod_ft <- glmer(
+    days_to_flower ~ (1 | genotype) + (1| cohort/tray),
+    data=flowering_time, family = 'poisson',
+    subset = pop==group
+  )
+  # Extract variance components on the expected scale
+  vc <- lme4::VarCorr(mod_ft)
+  pve_latent_scale <- c(vc$genotype, vc$cohort,  vc$`genotype:cohort`, vc$`tray:cohort`)
+
+  # Use QgGLMM to get variance components on the data scale (including Poisson noise)
+  # Each QGparams output gives the variance explained by each component divided
+  # by total phenotypic variance on the data scale.
+  pve_data_scale <- rep(NA, length=4)
+  for( i in 1:length(pve_latent_scale)){
+    pve_data_scale[i] <- QGparams(
+      mu = fixef(mod_ft),
+      var.a = pve_latent_scale[i],
+      var.p = sum(c(vc$genotype, vc$cohort,  vc$`genotype:cohort`, vc$`tray:cohort`)),
+      model = 'Poisson.log',
+      verbose = FALSE
+    )$h2.obs
+  }
+  list_pve[[group]] <- pve_data_scale
+}
+
+# Data from with a row for the three groups, and columns for var explained by
+# each component
+h2 <- do.call('rbind', list_pve, )
+colnames(h2) <- c('genotype', 'cohort', 'geno_x_cohort', 'tray')
+h2 <- as_tibble(h2, rownames = "group")
+
+# Plot a stacked bar chart with group on the x and var explained on the y
+# Results are nearly identical for the three groups
+# Genetics explains about 80% of the variance.
+h2 %>%
+  pivot_longer(genotype:tray, names_to = "component", values_to = "pve") %>%
+  ggplot(aes(x = group, y = pve, fill=component)) +
+  geom_col()+
+  lims(
+    y = c(0,1)
+  ) +
+  labs(
+    y = "Prop. variance explained"
+  ) +
+  theme(
+    axis.title.x = element_blank()
+  )
+
+```
+
+- (Log) flowering time based on 3 replicates per line
+- >80% variance between plants explained by differences between lines
+- The should be genes to find!
+
+## Confounding is halved
+
+```{r ft12-qqplots, out.width="80%", fig.align='center'}
+include_graphics(
+  paste0(
+    getwd(),
+    "07_presentations/250212_wednesday_seminar/ft12_qqplot.png"
+  )
+)
+```
+
+- Lambda > 1 indicates p-value inflation
+- Effects at one locus inflate associations at other loci
+- Lambda roughly halved in F9s
+
+## Peaks look better, kinda
+
+```{r ft12-mhplots, out.width="80%", fig.align='center'}
+include_graphics(
+  paste0(
+    getwd(),
+    "07_presentations/250212_wednesday_seminar/ft12_manhattan.png"
+  )
+)
+```
+
+- GWAS for flowering time at 12°C, without adjusting for LD
+- Simulations: this is consistent with many genes
+
+## Summary
+
+- Generating LD is a lot like picking up a regional accent
+  - If you say one regional variant, you probably say others
+  - Emergent property of exchanging genes with neighbours
+- It's a problem because alleles are confounded with each other
+
+## Summary
+
+- Generating LD is a lot like picking up a regional accent
+  - If you say one regional variant, you probably say others
+  - Emergent property of exchanging genes with neighbours
+- It's a problem because alleles are confounded with each other
+- Strong LD makes it hard to find genetic associations in Swedish *A. thaliana*
+
+## Summary
+
+- Generating LD is a lot like picking up a regional accent
+  - If you say one regional variant, you probably say others
+  - Emergent property of exchanging genes with neighbours
+- It's a problem because alleles are confounded with each other
+- Strong LD makes it hard to find genetic associations in Swedish *A. thaliana*
+- We experimentally manipulated LD
+   - Verified the results
+- It probably (?) helped with GWAS
+
+## Next steps
+
+- Resequence ambiguous genotypes
+- Phase genotypes using parental information
+- Seed-size data
+- Include statistical corrections for LD
+- Simulations
+
+
