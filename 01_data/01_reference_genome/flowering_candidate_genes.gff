@@ -1,0 +1,14 @@
+Chr1	TAIR10	gene	11040281	11043751	.	-	.	ID=AT1G30970;Note=protein_coding_gene;Name=SUF4
+Chr1	TAIR10	gene	22483207	22485969	.	+	.	ID=AT1G61040;Note=protein_coding_gene;Name=VIP5
+Chr2	TAIR10	gene	8172189	8178995	.	+	.	ID=AT2G18880;Note=protein_coding_gene;Name=VIL3
+Chr2	TAIR10	gene	9579874	9583893	.	+	.	ID=AT2G22540;Note=protein_coding_gene;Name=SVN
+Chr2	TAIR10	gene	12860541	12861910	.	-	.	ID=AT2G30120;Note=protein_coding_gene;Name=FLX
+Chr3	TAIR10	gene	8876027	8878171	.	-	.	ID=AT3G24440;Note=protein_coding_gene;Name=VIL1
+Chr4	TAIR10	gene	269026	271503	.	+	.	ID=AT4G00650;Note=protein_coding_gene;Name=FRI
+Chr4	TAIR10	gene	14786633	14790501	.	-	.	ID=AT4G30200;Note=protein_coding_gene;Name=VIL2
+Chr4	TAIR10	gene	16445208	16447773	.	+	.	ID=AT4G34400;Note=protein_coding_gene;Name=REM17
+Chr5	TAIR10	gene	3173497	3179448	.	-	.	ID=AT5G10140;Note=protein_coding_gene;Name=FLC
+Chr5	TAIR10	gene	15837210	15840638	.	-	.	ID=AT5G39550;Note=protein_coding_gene;Name=VIM3
+Chr5	TAIR10	gene	18589482	18591400	.	-	.	ID=AT5G45830;Note=protein_coding_gene;Name=DOG1
+Chr5	TAIR10	gene	23246395	23249504	.	-	.	ID=AT5G57380;Note=protein_coding_gene;Name=VIN3
+Chr5	TAIR10	gene	24603656	24607725	.	-	.	ID=AT5G61150;Note=protein_coding_gene;Name=VIP4

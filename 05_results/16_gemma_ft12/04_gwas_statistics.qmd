@@ -5,6 +5,7 @@ date: today
 format:
   html:
     toc: true
+    self-contained: true
 ---
 
 ```{r setup, echo=FALSE}
@@ -13,12 +14,11 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 suppressPackageStartupMessages(library(tidyverse))
 library(ggpubr)
-# library(here)
 
-# here::i_am("05_results/16_gemma_ft12/04_gwas_statistics.qmd")
 ```
 
-```{r load-data}
+
+```{r load-gemma}
 source("02_library/manhattan_plot.R")
 
 
@@ -40,7 +40,7 @@ for(f in 1:length(gwas)){
   gemma_file <- read_tsv(
     gemma_output_paths[f],
     # n_max = 1000,
-    col_types = 'cciiiccnnnnnn'
+    col_types = 'iciiiccnnnnnn'
   ) %>%
     mutate(
       log10p = -log10(p_lrt),
@@ -61,11 +61,73 @@ merge_gwas <- inner_join(
     gwas$F9_cohort_2,
     by = c("chr", "ps"),
     suffix = c("_cohort1", "_cohort2")
+  ) %>% 
+  mutate(
+    SNP = paste0(chr, "_", ps)
   )
 
 ```
 
+```{r candidate-gene-gff}
+
+# A GFF file with genes related to flowering time in some way
+candidate_genes <- read_delim(
+  "01_data/01_reference_genome/flowering_candidate_genes.gff",
+  delim = "\t",
+  col_types = "ccciicccc",
+  col_names = c("chr", "annotation", "type", "start", "stop", "score", "strand", "phase", "attributes")
+  ) %>% 
+  separate(attributes, into=c("id", "note", "name"), sep = ";") %>% 
+  mutate(
+    chr  = as.integer(gsub("Chr", "", chr)),
+    id   = gsub("ID=", "", id),
+    note = gsub("Note=", "", note),
+    name = gsub("Name=", "", name),
+  )
+
+# Add a column to merge_gwas giving the name of any candidate gene a SNP is
+# inside, or NA if there is no overlap.
+merge_gwas$candidate <- NA
+# Vector giving names of SNPs that fall inside candidate genes
+snps_of_interest <- rep(NA, length = nrow(candidate_genes))
+
+# 
+for(gene in 1:nrow(candidate_genes)){
+  chrom <- candidate_genes[gene,]$chr
+  start <- candidate_genes[gene,]$start
+  stop  <- candidate_genes[gene,]$stop
+  name  <- candidate_genes[gene,]$name
+
+  ix <- which(
+    (merge_gwas$chr == chrom) & (merge_gwas$ps >= start) & (merge_gwas$ps <= stop)
+  )
+  snps_of_interest <- c(snps_of_interest, merge_gwas$SNP[ix])
+  
+  merge_gwas$candidate[ix] <- name
+}
+
+```
+
 ## Manhattan plots
+
+The following three plots show GWAS for flowering time without a relatedness matrix for the parents and two cohorts of F9s.
+Green points show SNPs inside candidate genes that I put together by looking for things related to flowering and/or vernalisation on arabidopsis.org.
+
+Since chromosomes 2 and 5 look the most interestering, here are the genes from left to right, starting with Chr2:
+
+* VIL3
+* SVN
+* FLX (a regulator of Frigida)
+
+Chr5:
+
+* FLC
+* VIM3
+* DOG1
+* VIN3
+* VIP4
+
+Frigida, and something very close to it, also pops out at the start of Chr4
 
 ```{r create-mh}
 
@@ -88,15 +150,33 @@ for( i in 1:3){
 }
 ```
 
-```{r mh-noK, fig.height=20, fig.width=10}
-ggarrange(
-  mh_plots[[1]],
-  mh_plots[[2]],
-  mh_plots[[3]],
-  nrow = 3, ncol=1
+```{r mh-noK, fig.height=5, fig.width=15}
+#| warning: false
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_parents",
+  highlight = snps_of_interest,
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "Parents"
+)
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_cohort1",
+  highlight = snps_of_interest,
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "F9 cohort 1"
+)
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_cohort2",
+  highlight = snps_of_interest,
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "F9 cohort 2"
 )
 ```
-
 
 ## P-values
 
@@ -241,6 +321,33 @@ In fact $\lambda$ values are quite different:
 - 2.078 for cohort 1
 - 2.075 for cohort 2
 
+The plot below shows ordered p-values for the parents against both cohorts of F9s.
+They're under the diagonal, and there's a step in the same place.
+
+```{r qq-between-groups}
+merge_gwas %>% 
+  mutate(
+    parents = sort(log10p_parents),
+    cohort1 = sort(log10p_cohort1),
+    cohort2 = sort(log10p_cohort2)
+  ) %>% 
+  select(parents, cohort1, cohort2) %>% 
+  pivot_longer(cohort1 : cohort2) %>% 
+  ggplot(aes(x = parents, y = value, colour=name))+
+  geom_point() +
+  geom_abline() +
+  labs(
+    x = "log10 p (parents)",
+    y = "log10 p  (F9s)",
+    title = "QQ plot of parents against F9s"
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank()
+  )
+```
+
+
 ## Effect sizes
 
 The plot below shows effect sizes for of SNPs estimated by GEMMA without a K matrix for flowering time at 12°C, comparing parents to two cohorts of F9 plants.
@@ -333,3 +440,26 @@ merge_gwas %>%
   theme(axis.title.x = element_blank())
 
 ```
+
+Here is a table of the SNPs with absolute values of effect sizes greater than 0.3.
+You can see that they all come from five regions on Chr 1, 4 and 5.
+Associations are not strong, but they all have minor allele frequencies close to 0.5, which screams 'artefact'.
+
+```{r}
+knitr::kable(merge_gwas %>% 
+  filter(
+    abs(beta_parents) > 0.3
+  ) %>% 
+  select(chr, ps, af_parents, log10p_parents)
+)
+```
+
+I checked heterozygosity at these sites with a command like this:
+```
+bcftools query \
+  -r Chr5:4007332 \
+  -f "$CHROMS %POS %REF %ALT [ %GT]\n" \
+  03_processing/05_imputation/output/parental_lines.vcf.gz | \
+  head
+```
+They all appear to be heterozygous across samples, so this looks like an artefact.
