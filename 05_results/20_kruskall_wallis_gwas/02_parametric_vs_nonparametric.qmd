@@ -1,0 +1,242 @@
+---
+title: "Parametric vs. non-parametric GWAS on flowering time"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    self-contained: true
+execute: 
+  cache: false
+---
+
+This document compares GWAS results for flowering time using
+
+1. a parametric linear model in GEMMA, without a relatedness matrix
+2. a non-parametric GWAS performing a Kruskall-Wallis test at each locus.
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+
+```
+
+```{r load-parameteric-results}
+# List of results files, ignoring combined F9s
+parametric_gwas_files <- Sys.glob(
+  "05_results/16_gemma_ft12/output/no_K/*assoc.txt"
+)[-1]
+
+# Empty list to store results
+parametric <- vector('list', 3)
+names(parametric) <- c("parents", "cohort1", "cohort2")
+
+# Load into memory
+for(file in 1:3){
+  parametric[[file]] <- read_delim(
+    parametric_gwas_files[file],
+    delim = '\t',
+    col_types = 'iciiiccnnnnnn'
+  ) %>%
+    mutate(
+      log10p = -log10(p_lrt),
+      SNP = paste0(chr, "_", ps)
+    )
+}
+
+```
+
+```{r load-nonparametric-results}
+# List of results files, ignoring combined results
+nonparametric_gwas_files <- Sys.glob(
+  "05_results/20_kruskall_wallis_gwas/output/*tsv"
+)[-1]
+
+# Empty list to store results
+nonparametric <- vector('list', 3)
+names(nonparametric) <- c("parents", "cohort1", "cohort2")
+
+# Load into memory
+for(file in 1:3){
+  nonparametric[[file]] <- read_delim(
+    nonparametric_gwas_files[file],
+    delim = '\t',
+    col_types = 'ciddd'
+  ) %>%
+    mutate(
+      chr = as.integer(gsub("Chr", "", chr)),
+      log10p = -log10(p_lrt),
+      SNP = paste0(chr, "_", ps)
+    )
+}
+
+
+```
+
+```{r candidate-gene-gff}
+
+# A GFF file with genes related to flowering time in some way
+candidate_genes <- read_delim(
+  "01_data/01_reference_genome/flowering_candidate_genes.gff",
+  delim = "\t",
+  col_types = "ccciicccc",
+  col_names = c("chr", "annotation", "type", "start", "stop", "score", "strand", "phase", "attributes")
+) %>% 
+  separate(attributes, into=c("id", "note", "name"), sep = ";") %>% 
+  mutate(
+    chr  = as.integer(gsub("Chr", "", chr)),
+    id   = gsub("ID=", "", id),
+    note = gsub("Note=", "", note),
+    name = gsub("Name=", "", name),
+  )
+
+# Add a column to merge_gwas giving the name of any candidate gene a SNP is
+# inside, or NA if there is no overlap.
+parametric$parents$candidate <- NA
+# Vector giving names of SNPs that fall inside candidate genes
+snps_of_interest <- numeric(0)
+
+# 
+for(gene in 1:nrow(candidate_genes)){
+  chrom <- candidate_genes[gene,]$chr
+  start <- candidate_genes[gene,]$start
+  stop  <- candidate_genes[gene,]$stop
+  name  <- candidate_genes[gene,]$name
+  
+  ix <- which(
+    (parametric$parents$chr == chrom) & 
+      (parametric$parents$ps >= start) & 
+      (parametric$parents$ps <= stop)
+  )
+  snps_of_interest <- c(snps_of_interest, parametric$parents$SNP[ix])
+  
+  parametric$parents$candidate[ix] <- name
+}
+
+```
+
+# Manhattan plots
+
+## Parents
+
+```{r parents-mh, fig.height=5, fig.width=15}
+#| warning: false
+
+qqman::manhattan(
+  parametric$parents, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "Parents, parametric"
+)
+
+qqman::manhattan(
+  nonparametric$parents, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "Parents, non-parametric"
+)
+```
+
+## F9 Cohort 1
+
+```{r cohort1-mh, fig.height=5, fig.width=15}
+#| warning: false
+
+qqman::manhattan(
+  parametric$cohort1, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "F9 cohort 1, parametric"
+)
+
+qqman::manhattan(
+  nonparametric$cohort1, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "F9 cohort 1, non-parametric"
+)
+```
+
+## F9 Cohort 2
+
+```{r cohort2-mh, fig.height=5, fig.width=15}
+#| warning: false
+
+qqman::manhattan(
+  parametric$cohort2, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "F9 cohort 2, parametric"
+)
+
+qqman::manhattan(
+  nonparametric$cohort2, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  highlight = snps_of_interest,
+  main  = "F9 cohort 2, non-parametric"
+)
+```
+
+# P-values
+
+P values are strongly correlated!
+
+```{r pval-scatter-plots, fig.height=5, fig.width=15}
+
+ggarrange(
+  inner_join(
+    parametric$parents, nonparametric$parents, 
+    by = c("chr", 'ps')
+  ) %>% 
+    select(chr, ps, grep("log10p", names(.))) %>% 
+    ggplot(aes(x = log10p.x, y = log10p.y)) +
+    geom_point() +
+    labs(
+      x = "-log10 p (parametric)",
+      y = "-log10 p (non-parametric)",
+      title = "Parents"
+    ),
+  
+  
+  inner_join(
+    parametric$cohort1, nonparametric$cohort1, 
+    by = c("chr", 'ps')
+  ) %>% 
+    select(chr, ps, grep("log10p", names(.))) %>% 
+    ggplot(aes(x = log10p.x, y = log10p.y)) +
+    geom_point() +
+    labs(
+      x = "-log10 p (parametric)",
+      y = "-log10 p (non-parametric)",
+      title = "F9 cohort 1"
+    ),
+  
+  
+  inner_join(
+    parametric$cohort2, nonparametric$cohort2, 
+    by = c("chr", 'ps')
+  ) %>% 
+    select(chr, ps, grep("log10p", names(.))) %>% 
+    ggplot(aes(x = log10p.x, y = log10p.y)) +
+    geom_point() +
+    labs(
+      x = "-log10 p (parametric)",
+      y = "-log10 p (non-parametric)",
+      title = "F9 cohort 2"
+    ),
+  
+  ncol=3
+  
+)
+
+```
+
