@@ -37,6 +37,7 @@ parental_SNP_matrix=03_processing/01_parental_SNP_matrix/output/filtered_parenta
 # Which chromosome to work with
 chr=Chr${SLURM_ARRAY_TASK_ID}
 
+
 # === Output files ===
 
 # Output directory

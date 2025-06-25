@@ -57,7 +57,7 @@ names(eigenvals) <- names(eigenval_files)
 
 ```{r gps-data}
 gps <- read_csv(
-  "01_data/03_parental_genotypes/1135_accessions_updated_coordinates.csv",
+  "03_processing/06_process_phenotypes/output/parental_GPS_coordinates.csv",
   col_select = c('id', 'latitude', 'longitude'),
   show_col_types = FALSE
 ) %>%  
@@ -334,8 +334,9 @@ map_data('world') %>%
     )
 
 # There's a whacky accession from the Netherlands (7002)
-eigenvecs$parents %>%
-  filter(latitude < 51.4)
+# eigenvecs$parents %>%
+#   filter(latitude < 51.4) %>% 
+#   select(IID, id, latitude, longitude)
 
 ```
 
