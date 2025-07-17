@@ -107,7 +107,7 @@ ggarrange(
 ```{r mh-parents}
 ggarrange(
   mh_plots$parents_noK,
-  mh_plots$parents_withK
+  mh_plots$parents_withK,
   nrow = 2, ncol=1
 )
 ```

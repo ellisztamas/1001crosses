@@ -14,7 +14,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 suppressPackageStartupMessages(library(tidyverse))
 library(ggpubr)
-
+library(knitr)
 ```
 
 
@@ -76,7 +76,7 @@ candidate_genes <- read_delim(
   delim = "\t",
   col_types = "ccciicccc",
   col_names = c("chr", "annotation", "type", "start", "stop", "score", "strand", "phase", "attributes")
-  ) %>% 
+) %>% 
   separate(attributes, into=c("id", "note", "name"), sep = ";") %>% 
   mutate(
     chr  = as.integer(gsub("Chr", "", chr)),
@@ -97,7 +97,7 @@ for(gene in 1:nrow(candidate_genes)){
   start <- candidate_genes[gene,]$start
   stop  <- candidate_genes[gene,]$stop
   name  <- candidate_genes[gene,]$name
-
+  
   ix <- which(
     (merge_gwas$chr == chrom) & (merge_gwas$ps >= start) & (merge_gwas$ps <= stop)
   )
@@ -235,67 +235,67 @@ ggpubr::ggarrange(
 ```{r qqplot-functions}
 # Function to create GWAS QQ plot
 qqplot_gwas <- function(pvalues, main="QQ Plot for GWAS", ...) {
-    # Remove NAs
-    pvalues <- na.omit(pvalues)
-    
-    # Calculate observed and expected values
-    observed <- -log10(sort(pvalues))
-    expected <- -log10(ppoints(length(pvalues)))
-    
-    # Calculate confidence intervals (optional)
-    n <- length(pvalues)
-    conf <- 0.95  # 95% confidence interval
-    df <- data.frame(
-        observed = observed,
-        expected = expected,
-        clower = qbeta(0.025, 1:n, n - 1:n + 1),
-        cupper = qbeta(0.975, 1:n, n - 1:n + 1)
-    )
-    
-    # Create plot using ggplot2
-    library(ggplot2)
-    
-    ggplot(df, aes(x=expected, y=observed)) +
-        # Add confidence interval
-        geom_ribbon(aes(ymin=-log10(clower), ymax=-log10(cupper)), 
-                   fill="grey80", alpha=0.5) +
-        # Add reference line
-        geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
-        # Add observed points
-        geom_point() +
-        # Labels and theme
-        labs(x=expression(Expected~~-log[10](p)), 
-             y=expression(Observed~~-log[10](p)),
-             title=main) +
-        theme_bw()
+  # Remove NAs
+  pvalues <- na.omit(pvalues)
+  
+  # Calculate observed and expected values
+  observed <- -log10(sort(pvalues))
+  expected <- -log10(ppoints(length(pvalues)))
+  
+  # Calculate confidence intervals (optional)
+  n <- length(pvalues)
+  conf <- 0.95  # 95% confidence interval
+  df <- data.frame(
+    observed = observed,
+    expected = expected,
+    clower = qbeta(0.025, 1:n, n - 1:n + 1),
+    cupper = qbeta(0.975, 1:n, n - 1:n + 1)
+  )
+  
+  # Create plot using ggplot2
+  library(ggplot2)
+  
+  ggplot(df, aes(x=expected, y=observed)) +
+    # Add confidence interval
+    geom_ribbon(aes(ymin=-log10(clower), ymax=-log10(cupper)), 
+                fill="grey80", alpha=0.5) +
+    # Add reference line
+    geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
+    # Add observed points
+    geom_point() +
+    # Labels and theme
+    labs(x=expression(Expected~~-log[10](p)), 
+         y=expression(Observed~~-log[10](p)),
+         title=main) +
+    theme_bw()
 }
 
 # For multiple GWAS studies/conditions:
 qq_plot_multiple <- function(pvalue_list, labels, colors, main="") {
-    # Create data frame for plotting
-    plot_data <- data.frame()
+  # Create data frame for plotting
+  plot_data <- data.frame()
+  
+  for(i in 1:length(pvalue_list)) {
+    pvals <- na.omit(pvalue_list[[i]])
+    observed <- -log10(sort(pvals))
+    expected <- -log10(ppoints(length(pvals)))
     
-    for(i in 1:length(pvalue_list)) {
-        pvals <- na.omit(pvalue_list[[i]])
-        observed <- -log10(sort(pvals))
-        expected <- -log10(ppoints(length(pvals)))
-        
-        plot_data <- rbind(plot_data, 
-                          data.frame(expected = expected,
-                                   observed = observed,
-                                   group = labels[i]))
-    }
-    
-    # Create plot
-    ggplot(plot_data, aes(x=expected, y=observed, color=group)) +
-        geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
-        geom_point(alpha=0.7) +
-        scale_color_manual(values=colors) +
-        labs(x=expression(Expected~~-log[10](p)), 
-             y=expression(Observed~~-log[10](p)),
-             title=main) +
-        theme_bw() +
-        theme(legend.title=element_blank())
+    plot_data <- rbind(plot_data, 
+                       data.frame(expected = expected,
+                                  observed = observed,
+                                  group = labels[i]))
+  }
+  
+  # Create plot
+  ggplot(plot_data, aes(x=expected, y=observed, color=group)) +
+    geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
+    geom_point(alpha=0.7) +
+    scale_color_manual(values=colors) +
+    labs(x=expression(Expected~~-log[10](p)), 
+         y=expression(Observed~~-log[10](p)),
+         title=main) +
+    theme_bw() +
+    theme(legend.title=element_blank())
 }
 ```
 
@@ -304,9 +304,9 @@ QQ plots look *somewhat* less inflated.
 ```{r cohort-qqplot}
 # For multiple studies/conditions:
 pvalue_list <- list(
-    parents = merge_gwas$p_lrt_parents,
-    cohort1 = merge_gwas$p_lrt_cohort1,
-    cohort2 = merge_gwas$p_lrt_cohort2
+  parents = merge_gwas$p_lrt_parents,
+  cohort1 = merge_gwas$p_lrt_cohort1,
+  cohort2 = merge_gwas$p_lrt_cohort2
 )
 
 labels <- c("Parents", "F9 cohort 1", "F9 cohort 2")
@@ -447,19 +447,20 @@ Associations are not strong, but they all have minor allele frequencies close to
 
 ```{r}
 knitr::kable(merge_gwas %>% 
-  filter(
-    abs(beta_parents) > 0.3
-  ) %>% 
-  select(chr, ps, af_parents, log10p_parents)
+               filter(
+                 abs(beta_parents) > 0.3
+               ) %>% 
+               select(chr, ps, af_parents, log10p_parents)
 )
 ```
 
 I checked heterozygosity at these sites with a command like this:
 ```
 bcftools query \
-  -r Chr5:4007332 \
-  -f "$CHROMS %POS %REF %ALT [ %GT]\n" \
-  03_processing/05_imputation/output/parental_lines.vcf.gz | \
-  head
+-r Chr5:4007332 \
+-f "$CHROMS %POS %REF %ALT [ %GT]\n" \
+03_processing/05_imputation/output/parental_lines.vcf.gz | \
+head
 ```
 They all appear to be heterozygous across samples, so this looks like an artefact.
+

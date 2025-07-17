@@ -1,0 +1,548 @@
+---
+title: "Why do the peaks move?"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    self-contained: true
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library(MASS)
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+library(knitr)
+library(pheatmap)
+
+library(lme4)
+```
+
+Some, but not all the peaks in the two cohorts of F9s match.
+That indicates that GWAS results are not replicable.
+There could be several explanations:
+
+1. There are allele frequency differences
+2. They are a mixture of real associations, and spurious associations with things that happen to be in LD with real associations.
+3. There is epistasis, meaning there is stochasticity in the multi-locus genotypes we sample.
+
+## Peaks by eye
+
+Calling peaks programmatically is not straightforward, so I instead called them by eye.
+Below is a plot showing where they are, and a table with the details.
+
+
+```{r load-all-F9s}
+source("02_library/manhattan_plot.R")
+
+all_F9s_no_K <- read_delim(
+  "05_results/16_gemma_ft12/output/no_K/flowering_time_blups_F9_combined.assoc.txt",
+  delim = '\t',
+  show_col_types = FALSE
+) %>% 
+  mutate(
+    SNP = paste0(chr, ":", ps),
+    log10p = -log10(p_lrt)
+  )
+all_F9s_no_K <- add_base_pair_positions(all_F9s_no_K)
+
+# Candidate peak positions.
+ft12_peaks <- read_csv(
+  "05_results/16_gemma_ft12/output/top_SNPs/candidate_peak_positions.csv",
+  col_types = "ii",
+  col_names = c("chr", "ps")
+)
+ft12_peaks <- ft12_peaks %>% 
+  left_join(all_F9s_no_K, by=c("chr", "ps"))
+```
+
+```{r mh-allf9, fig.width=15, fig.height=8}
+all_F9s_no_K %>% 
+  filter(log10p > 5) %>% 
+  ggplot(aes(x=ps_cum, y=log10p)) +
+  geom_point( aes(color=as.factor(chr)), alpha=0.8, size=1.3) +
+  scale_color_manual(values = rep(c("grey", "skyblue"), 22 )) +
+  geom_point(data = ft12_peaks, color='red') +
+  labs(
+    x = "Chromosome",
+    y = expression(paste("-log"[10],"p-value")),
+    title = "All F9s at once, with manually-called SNP positions"
+  ) +
+  theme_bw() +
+  theme( 
+    legend.position="none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+```
+
+```{r ft12-peaks-table}
+ft12_peaks %>% 
+  select(chr, ps, af, log10p) %>% 
+  kable()
+```
+
+### Allele-frequency differences
+
+There is a large range of allele frequencies, but these do not really vary between cohorts.
+
+
+
+```{r load-gemma}
+source("02_library/manhattan_plot.R")
+
+
+# Vector of GEMMA output files.
+gemma_output_paths <- Sys.glob(
+  "05_results/16_gemma_ft12/output/no_K/*.assoc.txt"
+)
+# Drop the file with all F9s combined.
+gemma_output_paths <- grep(
+  "F9_combined", gemma_output_paths,
+  invert = TRUE, value = TRUE
+)
+
+
+gwas <- vector("list", length=length(gemma_output_paths))
+names(gwas) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+
+for(f in 1:length(gwas)){
+  gemma_file <- read_tsv(
+    gemma_output_paths[f],
+    # n_max = 1000,
+    col_types = 'iciiiccnnnnnn'
+  ) %>%
+    mutate(
+      log10p = -log10(p_lrt),
+      varexp = beta^2 * af * (1-af)
+    )
+  
+  gwas[[f]] <- gemma_file
+  
+}
+
+# Merge the result files
+merge_gwas <- inner_join(
+  gwas$Parents, gwas$F9_cohort_1,
+  by = c("chr", "ps"),
+  suffix = c("_parents", "")
+) %>%
+  inner_join(
+    gwas$F9_cohort_2,
+    by = c("chr", "ps"),
+    suffix = c("_cohort1", "_cohort2")
+  ) %>% 
+  mutate(
+    SNP = paste0(chr, "_", ps)
+  )
+
+```
+
+```{r af-between-cohorts}
+ft12_peaks %>%
+  select(chr, ps) %>%
+  left_join(merge_gwas, by = c("chr", "ps")) %>%
+  ggplot(aes(x=af_cohort1, y = af_cohort2)) +
+  geom_point() +
+  geom_abline() +
+  labs(
+    x = "Allele freq in F9 cohort 1",
+    y = "Allele freq in F9 cohort 2"
+  ) +
+  theme_bw()
+```
+
+## Linkage disequilibrium
+
+The heatmap below shows LD between candidate SNPs, with F9 cohort1 in the upper right and cohort 2 in the lower left.
+Values below 0.2 are blanked out for clarity.
+A part from a few loci that are physically very close there is essentially no LD between these markers.
+
+```{r ld-heatmap}
+ld_cohort1 <- read_delim(
+  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort1_phased_imputed.ld",
+  delim = "\t",
+  col_types = c("iiciicd")
+) %>% 
+  mutate(
+    SNP_A = gsub(",",":", SNP_A),
+    SNP_B = gsub(",",":", SNP_B),
+    cohort=1
+  )
+
+ld_cohort2 <- read_delim(
+  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort2_phased_imputed.ld",
+  delim = "\t",
+  col_types = c("iiciicd")
+) %>% 
+  mutate(
+    SNP_A = gsub(",",":", SNP_A),
+    SNP_B = gsub(",",":", SNP_B),
+    cohort=2
+  )
+
+ld_mat <- matrix(nrow = 43, ncol=43)
+snp_names <- unique(c(ld_cohort1$SNP_A, ld_cohort1$SNP_B))
+row.names(ld_mat) <- snp_names
+colnames(ld_mat) <- snp_names
+
+ld_mat[lower.tri(ld_mat, diag = FALSE)] <- ld_cohort1$R2
+ld_mat <- t(ld_mat)
+
+ld_mat[lower.tri(ld_mat, diag = FALSE)] <- ld_cohort2$R2
+
+ld_mat[ld_mat < 0.2] <- NA
+
+pheatmap(
+  ld_mat,
+  cluster_rows = FALSE, cluster_cols = FALSE
+)
+
+```
+
+The following plot shows R2 between these markers in the two cohorts, coloured
+by whether the markers are on the same or different chromosomes.
+Most of the points are just noise around a low mean.
+The points where there is substantial LD that also falls of the diagonal tend
+to be things on the same chromosome, but quite far away.
+
+```{r ld-between-cohorts}
+
+inner_join(
+  ld_cohort1, ld_cohort2, by = c("SNP_A", "SNP_B")) %>% 
+  mutate(
+    same_chromosome = ifelse(CHR_A.x == CHR_B.x, TRUE, FALSE)
+  ) %>% 
+  ggplot(aes(x = R2.x, y = R2.y, colour = same_chromosome)) +
+  geom_point() +
+  labs(
+    x = "R2 (cohort 1)",
+    y = "R2 (cohort 2)"
+  ) +
+  geom_abline() +
+  theme_bw()
+
+```
+
+## Epistasis
+
+```{r load-gt-data}
+
+#' Import genotype data
+#' 
+#' This imports and formats genotype data from some kind of
+#' VCF-formatting tool.
+#' 
+#' The input is assumed to have a row for each SNP and a column for
+#' each sample. The first two columns are CHROM and POS.
+#' 
+#' The output has a row for each sample and a column for each SNP.
+#' SNP names are delimted with underscores rather than colons so
+#' I can pass them to linear model syntax.
+import_gt <- function(file_path){
+  # Import the data file
+  gt <- read_tsv(file_path, show_col_types = FALSE)
+  
+  # Extract the names of SNPs and samples
+  snp <- paste0(gt$CHROM, "_", gt$POS)
+  sample_names <- colnames(gt)[-1:-2]
+  # Transpose, using only the data columns
+  gt <- t(gt[,-1:-2])
+  # Fix column and row names.
+  colnames(gt) <- snp
+  gt <- as_tibble(gt) %>% 
+    mutate(sample = sample_names) %>% 
+    dplyr::select(sample, everything()) %>%
+    mutate_if(is.numeric,as.factor)
+  
+  gt
+  
+}
+
+
+genotypes_comb <- import_gt(
+  "05_results/16_gemma_ft12/output/top_SNPs/F8_phased_imputed_top_SNPS.tsv"
+) %>% 
+  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
+genotypes_cohort1 <- import_gt(
+  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort1_phased_imputed_top_SNPS.tsv"
+) %>% 
+  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
+
+genotypes_cohort2 <- import_gt(
+  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort2_phased_imputed_top_SNPS.tsv"
+) %>% 
+  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
+
+# I will remove SNPs Chr1_9583022, Chr1_13127273 and Chr3_14767843 becauce
+# they have a lot of missing data, which ruins the multiple regression.
+
+# genotypes_cohort1 %>% 
+#   dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843) %>% 
+#   is.na() %>% 
+#   rowSums()
+# 
+# genotypes_cohort2 %>% 
+#   dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843) %>% 
+#   is.na() %>% 
+#   rowSums()
+
+
+
+```
+
+```{r merge-geno-pheno}
+pheno_comb <- read_tsv(
+  "03_processing/06_process_phenotypes/output/flowering_time_blups_F9_combined.tsv",
+  col_names = c("FID", "sample", "ft12"),
+  col_types = 'ccd'
+) %>% 
+  inner_join(genotypes_cohort1, by ="sample")
+
+pheno_cohort1 <- read_tsv(
+  "03_processing/06_process_phenotypes/output/flowering_time_blups_rep1.tsv",
+  col_names = c("FID", "sample", "ft12"),
+  col_types = 'ccd'
+) %>% 
+  inner_join(genotypes_cohort1, by ="sample")
+
+
+pheno_cohort2 <- read_tsv(
+  "03_processing/06_process_phenotypes/output/flowering_time_blups_rep2.tsv",
+  col_names = c("FID", "sample", "ft12"),
+  col_types = 'ccd'
+) %>% 
+  inner_join(genotypes_cohort2, by ="sample")
+
+```
+
+```{r formulae}
+formula_str_main <- paste(
+  "ft12 ~(",
+  paste(colnames(genotypes_comb)[-1], collapse = " + "),
+  ")"
+)
+
+formula_str_twoway <- paste(
+  "ft12 ~(",
+  paste(colnames(genotypes_comb)[-1], collapse = " + "),
+  ")^2"
+)
+```
+
+Here is an ANOVA table for F9 cohort 1 giving significances of the main effects of each SNP, with no interaction terms.
+Some are significant, most are not.
+The non-signifcant ones include the ones in the really strong peaks on Chr 4 and 5 that include known causal genes.
+The significant ones tend to be spread out along the chromosomes.
+I think this is really just picking up loci that aren't in physical linkage to one another, so the ANOVA can be safely ignored.
+
+```{r fixef-model}
+m_fixef <- lm( as.formula(formula_str_main), data = pheno_comb) 
+
+kable(
+  anova(m_fixef), digits = 3
+)
+```
+
+```{r stepAIC}
+
+m_fixef_file <- "05_results/16_gemma_ft12/output/stepAIC_model_F9_combined.Rds"
+
+if(file.exists(m_fixef_file)){
+  m_stepwise <- readRDS(m_fixef_file)
+} else {
+  m_stepwise <- stepAIC(
+    m_fixef, 
+    scope=list(upper=formula_str_twoway, lower = ~1)
+  )
+  
+  saveRDS(
+    m_stepwise,
+    file=m_fixef_file
+  )
+}
+
+step_call_str <- Reduce(paste, deparse(m_stepwise$call))
+
+n_interaction_terms <- str_count(step_call_str, coll(":"))
+n_all_terms <- str_count(step_call_str, coll("+")) + 1
+```
+
+This is one of the rare cases where stepwise regression is useful.
+I used `stepAIC` to start from the model with only main effects and look for better fitting models, allowing up-to-pairwise interactions.
+The best fitting model retained all `r n_all_terms - n_interaction_terms` main terms, and included `r n_interaction_terms` interaction terms (of a possible total of (40*39)/2=780 pairwise interactions).
+AIC changed from `r AIC(m_fixef)` for the model with main effects only to `r AIC(m_stepwise)`, indicating that including the interaction terms lead to a massive improvement in model fit.
+
+```{r epistatic-var-comp}
+
+step_call_str <- gsub("lm\\(formula = ft12 ~ ", "", step_call_str)
+step_call_str <- gsub(",data=pheno_comb\\)", "", step_call_str)
+step_call_str <- gsub(" ", "", step_call_str)
+
+step_call_terms <- str_split_1(step_call_str, pattern = "\\+")
+step_call_terms <- paste0("(1|", step_call_terms, ")")
+
+frm_ranef_str <- paste(
+  "ft12 ~", paste(step_call_terms, collapse = " + ")
+)
+
+m_ranef_file <- "05_results/16_gemma_ft12/output/QTL_interaction_model_F9_combined.Rds"
+
+if(file.exists(m_ranef_file)){
+  m_ranef <- readRDS(m_ranef_file)
+} else {
+  m_ranef <- lmer(as.formula(frm_ranef_str), data = pheno_comb)
+  saveRDS(
+    m_ranef,
+    file=m_ranef_file
+  )
+}
+
+var_components <- VarCorr(m_ranef, comp="Variance") %>% 
+  as_tibble() %>% 
+  mutate(
+    effect = case_when(
+      grepl(":", grp) ~ "interaction",
+      grepl("Residual", grp) ~ "residuals",
+      .default = "main"
+    )
+  )
+```
+
+Here is a histogram of variance explained by individual main, epistatic and residual terms.
+They are similar, except there is an excess of really small epistatic terms.
+
+```{r var-comp-hist}
+
+var_components %>% 
+  mutate(
+    pve = vcov / sum(vcov)
+  ) %>%
+ggplot(aes(x = pve, fill=effect)) +
+  geom_histogram() +
+  labs(
+    x="Variance",
+    y="Count"
+  ) +
+  theme_bw()
+```
+
+If you sum them up, main terms explain 64% of the variance, and interaction terms 22%.
+
+```{r var-comp-pie-chart}
+var_components %>% 
+  group_by(effect) %>% 
+  summarise(
+    pve = sum(vcov)
+  ) %>% 
+  mutate(
+    pve = pve / sum(pve)
+  ) %>% 
+  ggplot(aes(x = "", y = pve, fill = effect)) +
+  geom_col() +
+  coord_polar(theta = "y") +
+  labs(
+    y = ""
+  ) +
+  theme_void()
+
+```
+
+```{r, include=FALSE}
+var_components %>% 
+  arrange(-vcov) %>%
+  mutate(
+    pve = vcov / sum(vcov)
+  ) %>% 
+  dplyr::select(grp, pve) 
+```
+
+Here is a table summarising the variance explained by main effects and all epistatic interactions at each locus.
+
+```{r effects-at-each-locus}
+
+
+nsnps <- ncol(genotypes_comb) -1
+
+snp_effects <- tibble(
+  snp_name         = colnames(genotypes_comb)[-1],
+  n_interactions   = NA,
+  pve_interactions = NA,
+  pve_main         = NA
+)
+
+for(i in 1:nrow(snp_effects)){
+  
+  # Data for this marker only
+  snp_vc <- var_components %>% 
+    mutate(
+      pve = vcov / sum(vcov)
+    ) %>% 
+    filter(
+      grepl(snp_effects$snp_name[i], grp)
+    )
+  # Total number of interaction effects
+  snp_effects$n_interactions[i] <- snp_vc %>% 
+    filter(grepl(":", grp)) %>% 
+    nrow()
+  # Variance explained by all interaction effects
+  snp_effects$pve_interactions[i] <- snp_vc %>% 
+    filter(grepl(":", grp)) %>% 
+    pull(pve) %>% 
+    sum()
+  # Variance explained by main effects
+  snp_effects$pve_main[i] <- snp_vc %>% 
+    filter(!grepl(":", grp)) %>% 
+    pull(pve) %>% 
+    sum()
+}
+
+
+fluid_snps <- c(
+  'Chr1_19949063','Chr2_16838159','Chr3_9356551','Chr4_216718',
+  'Chr4_10316667','Chr5_7808811','Chr5_12245069'
+)
+
+snp_effects <- snp_effects %>%
+  mutate(
+    fluid_SNP = snp_name %in% fluid_snps
+  )
+
+kable(snp_effects)
+
+
+```
+
+The same thing as a plot
+
+```{r plot-effects-by-locus, fig.width=15, fig.height=8}
+snp_effects %>% 
+  pivot_longer(pve_main: pve_interactions, values_to = "PVE") %>% 
+  mutate(
+    chr = substr(snp_name, 1, 4),
+    snp_name = factor(snp_name, levels = snp_effects$snp_name)
+  ) %>% 
+  ggplot(aes(x=snp_name, y =PVE, colour = name, group=name)) +
+  geom_line() +
+  geom_point(
+    data = . %>% filter(fluid_SNP), color = "red", size = 2) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust=1)
+  ) +
+  facet_grid(~chr, scales = "free_x")
+```
+
+```{r}
+
+# m_ranef_cohort1 <- lmer(as.formula(frm_ranef_str), data = pheno_cohort1)
+
+```
+
