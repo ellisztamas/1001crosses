@@ -5,7 +5,6 @@
 # From https://genome.sph.umich.edu/wiki/Code_Sample:_Generating_Manhattan_Plots_in_R
 
 library(lattice)
-library(wesanderson)
 library(tidyverse)
 
 #' X-axis for a Manhattan plot
@@ -28,7 +27,7 @@ add_base_pair_positions <- function(gwas_data){
   # Cumulative bp position for each SNP along the whole chromosome
   gwas_data <- gwas_data %>%
     inner_join(data_cum, by = "chr") %>%
-    mutate(bp_cum = ps + bp_add)
+    mutate(ps_cum = ps + bp_add)
 
   gwas_data
 }

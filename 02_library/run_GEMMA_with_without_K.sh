@@ -116,19 +116,16 @@ subsetted_VCF=$tmp_dir/${pheno_name}.vcf
 plink_output=$tmp_dir/$pheno_name
 relatedness_matrix=${pheno_name}_K_matrix
 
-# Format the data files required for running GEMMA
-echo "Subsetting the VCF file to include only those samples in the phenotype file..."
-# Extract sample names as a comma-delimited list
-samplelist=$(cut -d$'\t' -f2 $pheno_file | tr '\n' ',')
-samplelist="${samplelist%,}"
-# Subset the VCF file.
-bcftools view -s $samplelist $vcf > $subsetted_VCF
-if [ $? -eq 0 ] ; then echo -n "done." ; fi
-
 # Create PLINK file
-echo "Creating the .bed .fam and .bim files, required for GWAS..."
-plink2 --vcf $subsetted_VCF --pheno $pheno_file --make-bed --out $plink_output
-if [ $? -eq 0 ] ; then echo -n "done." ; fi
+echo "Creating the .bed .fam and .bim files, and filtering for samples with phenotypes..."
+echo ""
+plink2 \
+  --vcf $vcf \
+  --pheno $pheno_file \
+  --make-bed \
+  --set-missing-var-ids '#_@' \
+  --keep $pheno_file \
+  --out $plink_output
 
 # Create relatedness matrix
 echo "Calculating the relatedness matrix..."
@@ -136,7 +133,6 @@ gemma -bfile $plink_output \
   -gk 1 \
   -outdir $tmp_dir \
   -o $relatedness_matrix
-if [ $? -eq 0 ] ; then echo -n "Finished calculating the relatedness matrix." ; fi
 
 # Run GEMMA
 echo " Running GEMMA using the Plink relatedness matrix..."
@@ -158,7 +154,6 @@ gemma \
     $gemma_args
 
 echo "Removing temporary files."
-rm $subsetted_VCF 
 rm ${plink_output}.bim
 rm ${plink_output}.bed
 rm ${plink_output}.fam
