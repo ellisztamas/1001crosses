@@ -12,6 +12,7 @@ dependencies:
   - conda-forge::filelock
   - gemma
   - ipykernel
+  - conda-forge::limix-plot
   - multiqc
   - conda-forge::ncurses
   - numpy
@@ -22,21 +23,25 @@ dependencies:
   - plink
   - plink2
   - python>3.10
+  - conda-forge::quarto
   - r-base
   - r-ggplot2
+  - conda-forge::r-ggpubr
   - conda-forge::r-htmlwidgets
   - conda-forge::r-manhattanly
   - conda-forge::r-optparse
+  - conda-forge::r-quarto
+  - conda-forge::r-qqman
+  - conda-forge::r-rprojroot
+  - conda-forge::r-tinytex
   - r-vctrs=0.5.1
   - samtools
   - scipy
-  - snakemake>=8.0.0
   - tabix
   - trim-galore
   - vcftools
   - pip:
     - ibdpainting
-    - limix-plot
     - methlab
     - statsmodels
     - scikit-allel
