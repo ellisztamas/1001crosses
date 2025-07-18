@@ -21,7 +21,9 @@
 01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf*
 01_data/05_phenotype_expt/flowering_time_raw_data
 03_processing/*/output
+03_processing/*/slurm
 05_results/*/output
+05_results/*/slurm
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,python,jupyternotebooks
