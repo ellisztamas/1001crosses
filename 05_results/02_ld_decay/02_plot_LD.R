@@ -9,8 +9,8 @@ library(tidyverse)
 # library(ggplot2)
 
 ld_files <- list(
-  parents='05_results/02_ld_decay/output/parental_lines.ld.gz',
-  progeny="05_results/02_ld_decay/output/F8_phased_imputed.ld.gz"
+  parents='05_results/02_ld_decay/output/parental_lines_r2.ld.gz',
+  progeny="05_results/02_ld_decay/output/F8_phased_imputed_r2.ld.gz"
 )
 
 

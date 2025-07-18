@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 
-# Use PLINK to summarise decay in LD for the two replicates of F8s plus the
-# parents
-
-# Input:
-#    Three VCF files
-# Output:
-#    A zipped file giving LD between each SNP for each VCF file. Also three 
-#        additional PLINK files.
+# Use PLINK to summarise decay in LD within 100kb
 #
 # Tom Ellis, 15th December 2023
 
@@ -43,14 +36,41 @@ infile=${vcf_files[$i]}
 outdir=05_results/02_ld_decay/output
 mkdir -p $outdir
 
-# Calculate LD for replicate 1
+# Plink text files giving r2 and D between pairs of loci
+prefix=$(basename -s .vcf.gz ${vcf_files[$i]} )
+r2_file=$outdir/${prefix}_r2
+d_file=$outdir/${prefix}_D
+
+
+# === Main === 
+
+# Calculate r2
 plink \
     --vcf ${vcf_files[$i]} \
-    --double-id --allow-extra-chr \
+    --double-id \
+    --allow-extra-chr \
     --set-missing-var-ids @:# \
-    --maf 0.05 --geno 0.1 --mind 0.5 \
-    --thin 0.1 -r2 gz --ld-window 100 --ld-window-kb 100 \
+    --maf 0.05 \
+    --thin 0.1 \
+    --geno 0.5 \
+    --r2 gz \
+    --ld-window 100 \
+    --ld-window-kb 100 \
     --ld-window-r2 0 \
-    --out $outdir/$(basename -s .vcf.gz ${vcf_files[$i]} )
+    --out $r2_file
 
-date
+# Calculate D
+plink \
+    --vcf ${vcf_files[$i]} \
+    --double-id \
+    --allow-extra-chr \
+    --set-missing-var-ids @:# \
+    --maf 0.05 \
+    --thin 0.1 \
+    --geno 0.5 \
+    --r gz d \
+    --ld-window 100 \
+    --ld-window-kb 100 \
+    --ld-window-r2 0 \
+    --out $d_file
+

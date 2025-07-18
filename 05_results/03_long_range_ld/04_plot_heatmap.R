@@ -83,7 +83,7 @@ r2_table %>%
   mutate(
     within_between = ifelse(chr_i == chr_j, "within", "between")
   ) %>%
-  # filter(r2 > 0.1) %>%
+  # filter(r2 > 0.2) %>%
   ggplot(aes(x=r2, colour=generation)) +
   geom_freqpoly() +
   theme_bw() +
