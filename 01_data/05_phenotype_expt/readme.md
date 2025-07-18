@@ -40,3 +40,7 @@ and 427 F9 lines.
         TDM = Tal Dahan-Meir
         RM = Rozi
         NS = Natasa
+- seed_sizes_per_seed.txt
+    Raw data from the phenotyping company LabDeers on 300 *individual* seeds for
+    1744 samples. 
+    

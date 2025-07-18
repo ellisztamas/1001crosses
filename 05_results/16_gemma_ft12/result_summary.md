@@ -15,6 +15,8 @@ GWAS with GEMMA on BLUPs for log flowering time.
     effect sizes in the parents and F8s
 - `04_gwas_statistics.qmd` is a more detailed examination of GWAS statistics for
     models with no relatdness matrix.
+- `output/candidate_peak_positions.csv` is a list of SNP positions that look
+    like peaks from the full F9 set. I called these by eye.
 
 ## Main conclusion
 
