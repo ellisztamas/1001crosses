@@ -9,8 +9,8 @@ library(tidyverse)
 # library(ggplot2)
 
 ld_files <- list(
-  parents="05_results/02_ld_decay/output/parental_lines_D.ld.gz"
-  progeny='05_results/02_ld_decay/output/F8_phased_imputed_D.ld.gz',
+  parents="05_results/02_ld_decay/output/parental_lines_D.ld.gz",
+  progeny='05_results/02_ld_decay/output/F8_phased_imputed_D.ld.gz'
 )
 
 
@@ -49,15 +49,28 @@ do.call(what = 'rbind', ld_bins) %>%
   ) +
   theme_bw()
 
+
 do.call(what = 'rbind', ld_bins) %>%
+  pivot_wider(names_from = Generation, values_from = meanD) %>%
   mutate(
-    cM_3 = distance /
-  )
+    rfrac_3 = (distance*1e-6 * 5) / 10,
+    expD_3  = (1-rfrac_3)*(1-(2*rfrac_3))^7 * parents
+  ) %>%
+  select(-rfrac_3) %>%
+  pivot_longer(parents:progeny, names_to = 'Generation', values_to = "meanD") %>%
+  ggplot(aes(x=distance/1000, y = meanD, colour=Generation)) +
+  geom_point(size=0.5) +
+  geom_line(aes(x = distance/1000, y=expD_3), colour='black') +
+  labs(
+    x = "Physical distance (kb)",
+    y = "Mean D"
+  ) +
+  theme_bw()
 
 
-ggsave(
-  "05_results/02_ld_decay/output/short_range_LD.png",
-  device = "png",
-  units = "in",
-  height = 6, width =8
-)
+# ggsave(
+#   "05_results/02_ld_decay/output/short_range_LD.png",
+#   device = "png",
+#   units = "in",
+#   height = 6, width =8
+# )
