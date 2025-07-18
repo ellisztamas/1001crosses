@@ -16,7 +16,7 @@ This document compares GWAS results for flowering time using
 2. a non-parametric GWAS performing a Kruskall-Wallis test at each locus.
 
 ```{r setup, echo=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 suppressPackageStartupMessages(library(tidyverse))
