@@ -8,8 +8,10 @@ dependencies:
   - bedtools
   - bwa
   - cutadapt
+  - bioconda::cyvcf2
   - fastqc
   - conda-forge::filelock
+  - bioconda::gcta 
   - gemma
   - ipykernel
   - conda-forge::limix-plot
