@@ -22,6 +22,8 @@ usage () {
         --pheno       Phenotype file formatted for GEMMA.
                       This should be tab delimited, usually with a column of zeroes,
                       a column of sample names and one or more columns of phenotypes.
+                      Missing phenotypes should be coded as NA, not as the default
+                      value of -9 that some programs will generate!
         --outdir      Path to the directory to store the output.
         --covariates   Optional covariate file formatted for GEMMA.
                       This should be tab delimited with a column of ones to tell
@@ -123,7 +125,8 @@ plink2 \
   --vcf $vcf \
   --pheno $pheno_file \
   --make-bed \
-  --set-missing-var-ids '#_@' \
+  --set-all-var-ids '@_#' \
+  --no-input-missing-phenotype \
   --keep $pheno_file \
   --out $plink_output
 
