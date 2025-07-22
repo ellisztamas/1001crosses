@@ -8,18 +8,25 @@
 
 library(tidyverse)
 
-# CSV files for the parents and F8s giving Chr, position and r2
-# This is for loci with a minimum r2; see previous scripts in this directory
-parents <- read_csv(
+
+# CSV files for the parents and F8s giving Chr, position, D, D prime and r2
+# The import is done in chunks, filtering rows with r2<0.5 on the fly
+f <- function(x, pos) subset(x, r2 >= 0.5)
+
+parents <- read_csv_chunked(
   "05_results/03_long_range_ld/output/parents_snps_in_LD.csv",
-  col_types = 'ccd'
-  ) %>%
+  callback = DataFrameCallback$new(f),
+  chunk_size = 10000
+) %>%
   mutate(
     generation = "parents"
   )
-progeny <- read_csv(
+
+progeny <- read_csv_chunked(
   "05_results/03_long_range_ld/output/progeny_snps_in_LD.csv",
-  col_types = 'ccd'
+  col_types = 'ccddd',
+  callback = DataFrameCallback$new(f),
+  chunk_size = 10000
   ) %>%
   mutate(
     generation = "progeny"
@@ -31,7 +38,8 @@ r2_table <- rbind(parents, progeny) %>%
   separate(j, into=c("chr_j", 'pos_j'), sep=":")
 
 # Set a minimum value of r2 to include in the plot.
-minimum_r2_to_plot <- 0.5
+# Not used - the filtering should happen on import
+minimum_r2_to_plot <- 0.0
 
 r2_table %>%
   # Set a minimum r2 to plot
@@ -77,24 +85,24 @@ ggsave(
   height = 16.9, width = 16.9, units = "cm"
   )
 
-
-# Histograms of LD within and between chromosomes
-r2_table %>%
-  mutate(
-    within_between = ifelse(chr_i == chr_j, "within", "between")
-  ) %>%
-  # filter(r2 > 0.2) %>%
-  ggplot(aes(x=r2, colour=generation)) +
-  geom_freqpoly() +
-  theme_bw() +
-  facet_grid(~within_between)
-
-# Scatter plot of between-chromosome LD
-r2_table %>%
-  pivot_wider(names_from = generation, values_from = r2) %>%
-  # filter(chr_i != chr_j) %>%
-  mutate(
-    within_between = ifelse(chr_i == chr_j, "within", "between")
-  ) %>%
-  ggplot(aes(x=parents, y= progeny, colour = within_between)) +
-  geom_point()
+#
+# # Histograms of LD within and between chromosomes
+# r2_table %>%
+#   mutate(
+#     within_between = ifelse(chr_i == chr_j, "within", "between")
+#   ) %>%
+#   # filter(r2 > 0.2) %>%
+#   ggplot(aes(x=r2, colour=generation)) +
+#   geom_freqpoly() +
+#   theme_bw() +
+#   facet_grid(~within_between)
+#
+# # Scatter plot of between-chromosome LD
+# r2_table %>%
+#   pivot_wider(names_from = generation, values_from = r2) %>%
+#   # filter(chr_i != chr_j) %>%
+#   mutate(
+#     within_between = ifelse(chr_i == chr_j, "within", "between")
+#   ) %>%
+#   ggplot(aes(x=parents, y= progeny, colour = within_between)) +
+#   geom_point()

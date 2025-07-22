@@ -96,12 +96,10 @@ def calculate_LD(chunk_i, chunk_j):
     geno_array_i = allel.GenotypeArray(chunk_i).to_n_alt(fill=-9)
     geno_array_j = allel.GenotypeArray(chunk_j).to_n_alt(fill=-9)
 
-    # Positions of elements that are missing or heterozygous
+    # Mask elements that are missing or heterozygous
     mask_i = (geno_array_i == -9) | (geno_array_i == 1)
     mask_j = (geno_array_j == -9) | (geno_array_j == 1)
-    # Set the masks to the union the two matrices to ensure we only compare 
-    # loci that are not NA in *both* matrices.
-    geno_array_i = ma.masked_array(geno_array_i, mask_j)
+    geno_array_i = ma.masked_array(geno_array_i, mask_i)
     geno_array_j = ma.masked_array(geno_array_j, mask_j)
 
     # Loop over pairs of loci and get LD statistics

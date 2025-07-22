@@ -50,8 +50,8 @@ progeny_out=$outdir/progeny_snps_in_LD.csv
 # Fie headers giving the locus names and a column for r2
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]; then
     echo "This is the first task in the array. Creating output files."
-    echo "i,j,r2" > $parents_out
-    echo "i,j,r2" > $progeny_out
+    echo "i,j,d,dprime,r2" > $parents_out
+    echo "i,j,d,dprime,r2" > $progeny_out
 else
     echo "This is not the first task in the array. Waiting for the first task to create output files."
     sleep 5
