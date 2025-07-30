@@ -10,7 +10,8 @@ library(tidyverse)
 
 ld_files <- list(
   parents="05_results/02_ld_decay/output/parental_lines_D.ld.gz",
-  progeny='05_results/02_ld_decay/output/F8_phased_imputed_D.ld.gz'
+  progeny='05_results/02_ld_decay/output/F8_phased_imputed_D.ld.gz',
+  unphased='05_results/02_ld_decay/output/F8_snp_matrix_D.ld.gz'
 )
 
 
@@ -53,8 +54,8 @@ do.call(what = 'rbind', ld_bins) %>%
 do.call(what = 'rbind', ld_bins) %>%
   pivot_wider(names_from = Generation, values_from = meanD) %>%
   mutate(
-    rfrac_3 = (distance*1e-6 * 5) / 10,
-    expD_3  = (1-rfrac_3)*(1-(2*rfrac_3))^7 * parents
+    rfrac_3 = (distance*1e-6 * 3) / 10,
+    expD_3  = (1-rfrac_3)*(1-(1*rfrac_3))^7 * parents
   ) %>%
   select(-rfrac_3) %>%
   pivot_longer(parents:progeny, names_to = 'Generation', values_to = "meanD") %>%
