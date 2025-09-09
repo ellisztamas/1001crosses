@@ -1,0 +1,338 @@
+---
+title: "Pairwise relatedness"
+author: "Tom Ellis"
+format:
+  html:
+    toc: true
+date: today
+execute:
+  message: false
+  warning: false
+  cache: false
+---
+
+An exploration of pairwise relatedness in parents and F8s.
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+library(knitr)
+```
+
+```{r import-parents}
+
+# A square matrix of standardised relatedness matrices
+parents <- as.matrix(read.table(
+  "05_results/18_relatedness_matrix/output/parental_lines.rel",
+  header=FALSE
+))
+# Set the upper right and diagonal to NA
+parents[upper.tri(parents, diag = TRUE)] <- NA
+
+# Add row and column names
+parent_ids <- read_tsv(
+  "05_results/18_relatedness_matrix/output/parental_lines.rel.id",
+  col_names = c("FID", "ID"),
+  col_types = 'cc'
+)
+
+row.names(parents) <- colnames(parents) <- parent_ids$FID
+
+
+```
+
+```{r import-progeny}
+
+# A square matrix of standardised relatedness matrices
+progeny <- as.matrix(read.table(
+  "05_results/18_relatedness_matrix/output/F8_phased_imputed.rel",
+  header=FALSE
+))
+# Set the upper right and diagonal to NA
+progeny[upper.tri(progeny, diag = TRUE)] <- NA
+
+# Add row and column names
+progeny_ids <- read_tsv(
+  "05_results/18_relatedness_matrix/output/F8_phased_imputed.rel.id",
+  col_names = c("FID", "ID"),
+  col_types = 'cc'
+) %>% 
+  # For some reason Plink split the F8 names at the underscore
+  # so paste them back together
+  mutate(names = paste0(FID, "_", ID))
+
+row.names(progeny) <- colnames(progeny) <- progeny_ids$names
+
+```
+
+```{r relatedness-table}
+# Relatedness values from the matrices, but as a tibble
+# without NA values.
+
+rel_table <- rbind(
+  tibble(
+    generation = "parents", rel = as.vector(parents),
+  ),
+  tibble(
+    generation = "progeny", rel = as.vector(progeny)
+  )
+) %>%
+  filter(complete.cases(.))
+```
+
+## Define relatedness
+
+I used Plink to calculate pairwise relatedness between pairs of samples.
+I filtered for MAF > 0.05, missingness per SNP < 10%, and missingness per individual < 50%.
+By default, Plink uses the formulation for relatedness $A_{jk}$ between individuals $i$ and $j$ from [Yang *et al.* 2011](https://doi.org/10.1016/j.ajhg.2010.11.011):
+
+$$
+A_{jk} = \frac{1}{N} \Sigma_{i=1}^{N}
+\frac{(x_{ij}-2p_i) (x_{ik}-2p_i) }
+{2 p_i (1-p_i)}
+$$
+where $x_{ij}$ is the number of copies of the reference allele for the $i^{th}$ SNP of the $j^{th}$ individual and $p_i$ is the frequency of the reference allele.
+I added the option `cov`, which skips the standardisation by allele frequencies.
+I *think* that means it does not include the denominator in the fraction, but I am not sure.
+In what follows I am going to refer to this pairwise-relatedness-like thing as just 'relatedness' for simplicity.
+
+## Distributions of relatedness
+
+@fig-rel-hist shows histograms of pairwise relatedness.
+Both show right skew, but the distribution for the parents is broader in both direction, and has a particularly long tail.
+Values for the parents range from `r min(parents, na.rm = TRUE) %>% round(2)` to `r max(parents, na.rm = TRUE) %>% round(2)`, and those for the progeny from `r min(progeny, na.rm = TRUE) %>% round(3)` to `r max(progeny, na.rm = TRUE) %>% round(3)`.
+
+```{r fig-rel-hist}
+#| fig-cap: "Density histograms of pairwise covariance in relatedness in the parents and F8s. The histogram does not include terms from the diagonal of the relatedness matrices."
+
+rel_table %>%
+  ggplot(aes(x=rel, fill = generation)) +
+  # geom_freqpoly(aes(y = after_stat(density)), binwidth = 1)
+  # geom_histogram(binwidth = 0.05) +
+  geom_histogram(aes(y = after_stat(density))) +
+  facet_grid(generation ~ .) +
+  labs(
+    x = "Pairwise covariance in relatedness"
+  ) +
+  theme_bw()
+
+```
+
+## Closely related F8s
+
+Who are the parents of F8s with close relatives?
+A look at the pairs with relatedness >0.2 shows that a lot are from reciprocal crosses, which makes complete sense.
+Here are the first 10 pairs of the 248 with relatedness > 0.2:
+
+```{r close-relatives-progeny}
+
+close_relatives_ix <- list(
+  parents = which(parents > 0.2, arr.ind = TRUE),
+  progeny = which(progeny > 0.2, arr.ind = TRUE)
+)
+
+kable(tibble(
+  row = row.names(progeny)[close_relatives_ix$progeny[,2]],
+  col = row.names(progeny)[close_relatives_ix$progeny[,1]]
+) %>%
+  arrange(row, col) %>%
+  head(10)
+)
+
+```
+
+```{r rel-by-cohort}
+#| fig-cap: "Pairwise relatedness within F8 cohorts."
+
+progeny_rep1 <- progeny[
+  grepl("_rep1", rownames(progeny)),
+  grepl("_rep1", colnames(progeny))
+]
+
+progeny_rep2 <- progeny[
+  grepl("_rep2", rownames(progeny)),
+  grepl("_rep2", colnames(progeny))
+]
+```
+
+Separating the F8s by cohort massively reduces the right-hand skew, although it does not remove it completely (@fig-rel-by-cohort).
+It's hard to see from the plot, but there are still `r sum(progeny_rep1>0.2, na.rm = TRUE)` pairs of lines from cohort 1 and `r sum(progeny_rep2>0.2, na.rm = TRUE)` from cohort 2 with relatedness >0.2.
+
+```{r fig-rel-by-cohort}
+#| fig-cap: "Pairwise relatedness in each cohort of F8s."
+rbind(
+  tibble(
+    cohort = "Cohort 1",
+    rel = as.vector(progeny_rep1)
+  ),
+  tibble(
+    cohort = "Cohort 2",
+    rel = as.vector(progeny_rep2)
+  )
+) %>% 
+  filter(complete.cases(.)) %>% 
+  ggplot(aes(x = rel)) + 
+  geom_histogram(aes(y = after_stat(density))) +
+  facet_grid(cohort ~ .) +
+  labs(
+    x = "Pairwise covariance in relatedness",
+    title = "Relatedness within F8 cohorts"
+  ) +
+  theme_bw()
+
+```
+
+@tbl-close-rel-cohort1 and @tbl-close-rel-cohort2 show the identities of pairs of closely-related lines.
+You can see that they tend to share one of their parents.
+
+```{r tbl-close-rel-cohort1}
+#| tbl-cap: "Pairs of F8 lines from cohort 1 that with relatedness > 0.2. The final column indicates with the two lines share a parent."
+ix_rep1 <- which(progeny_rep1 > 0.2, arr.ind = TRUE)
+
+kable(
+  tibble(
+    line_1 = rownames(progeny_rep1)[ix_rep1[,1]],
+    line_2 = colnames(progeny_rep1)[ix_rep1[,2]],
+    shared_parent = c("yes","yes","yes","yes","yes","yes","yes","yes","yes","no","no","no","yes","yes")
+  )
+)
+
+
+
+```
+
+```{r tbl-close-rel-cohort2}
+#| tbl-cap: "Pairs of F8 lines from cohort 2 that with relatedness > 0.2. The final column indicates with the two lines share a parent. I think 1435 and 5839 are very closely related, so I am counting these as 'kinda' the same parent."
+ix_rep2 <- which(progeny_rep2 > 0.2, arr.ind = TRUE)
+
+kable(
+  tibble(
+    line_1 = rownames(progeny_rep2)[ix_rep2[,1]],
+    line_2 = colnames(progeny_rep2)[ix_rep2[,2]],
+    shared_parent = c("kinda","kinda","yes","yes","yes","yes","yes","yes","yes","yes")
+  )
+)
+
+
+
+```
+
+## Closely-related parents
+
+There are 126 lines that appear in at least on pair of lines with relatedness>0.2.
+@fig-line-counts plots how many times each line appears.
+
+```{r fig-line-counts}
+#| fig-cap: "Number of pairs of lines with relatedness>0.2 in which each line appears."
+#| fig-height: 20
+parents_ix <- which(parents > 0.2, arr.ind = TRUE)
+
+related_parents <- tibble(
+  row = rownames(parents)[parents_ix[,1]],
+  col = colnames(parents)[parents_ix[,2]]
+ ) %>% 
+  arrange(col, row)
+
+related_parent_counts <- table(c(related_parents$row, related_parents$col))
+
+related_parent_counts <- tibble(
+  line = factor(names(related_parent_counts)),
+  count = related_parent_counts
+) 
+
+related_parent_counts %>% 
+  mutate(line = fct_reorder(line, count)) %>% 
+  ggplot(aes(x = count, y=line )) +
+  geom_point()
+
+```
+
+@fig-rel-vs-pca shows the first two PCs of genetic variation, coloured by the number of close relatives for each accession.
+Accesions with lots of relatives tend to be have low values of PC1 and high values of PC2, which tend to be individuals from the North.
+
+```{r fig-rel-vs-pca}
+#| fig-cap: "PCs 1 and 2, coloured by the number of close relatives for each accession."
+pca <- read_delim(
+  "05_results/01_pca/output/parental_lines.eigenvec",
+  delim = " ",
+  show_col_types = FALSE
+) %>% 
+  select(FID, PC1, PC2) %>% 
+  mutate(
+    line = as.character(FID)
+  )
+
+# related_parent_counts %>% 
+#   mutate(line = as.character(line)) %>% 
+#   left_join(pca, by="line") %>% 
+#   ggplot(aes(x=PC1, y=count))+
+#   geom_point()
+  
+related_parent_counts %>% 
+  mutate(
+    line = as.character(line),
+    count = as.integer(count)
+    ) %>% 
+  left_join(pca, by="line") %>% 
+  ggplot(aes(x=PC1, y=PC2, colour = count))+
+  geom_point()
+```
+
+```{r gps-data}
+gps <- read_csv(
+  "01_data/03_parental_genotypes/1135_accessions_updated_coordinates.csv",
+  col_select = c('id', 'latitude', 'longitude'),
+  show_col_types = FALSE
+) %>%  
+  mutate(
+    line = as.character(id)
+  )
+
+related_parent_counts <- related_parent_counts %>% 
+  mutate(
+    line = as.character(line),
+    count = as.integer(count)
+    ) %>% 
+  left_join(gps, by="line")
+```
+
+```{r map}
+
+map_data('world') %>% 
+  ggplot() +
+  # Plot an empty map of the world
+  # Borders are shown the same colour as the country backgrounds
+  geom_polygon(
+    aes(x=long, y = lat, group = group),
+    fill="gray90", colour="gray70") + 
+  coord_fixed(
+    xlim = range(related_parent_counts$longitude, na.rm = TRUE),
+    ylim = range(related_parent_counts$latitude, na.rm = TRUE),
+    1.5
+  ) +
+  # Overplot the accessions
+  geom_point(
+    data = related_parent_counts ,
+    aes(x=longitude, y = latitude, size=count)) +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    # legend.position = "none",
+    # legend.title = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+    )
+
+
+```
