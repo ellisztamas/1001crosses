@@ -33,7 +33,7 @@ indir=$scratchdir/04_aligned_bam
 # Location of the reference genome to map to.
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
 # SNP matrix file
-parental_SNP_matrix=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
+parental_SNP_matrix=03_processing/01_parental_SNP_matrix/output/1163g.filtered_by_site.vcf.gz
 # Which chromosome to work with
 chr=Chr${SLURM_ARRAY_TASK_ID}
 

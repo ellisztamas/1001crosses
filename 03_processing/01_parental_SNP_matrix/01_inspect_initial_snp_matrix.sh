@@ -73,9 +73,3 @@ vcftools --gzvcf $vcf --missing-site --out $outdir
 # Heterozygosity per individual and per site
 vcftools --gzvcf $vcf --het --out $outdir
 heterozygosity_per_site $vcf > $outdir/heterozygosity_per_site.tsv
-
-
-# create targets file
-echo "Creating targets file."
-bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' $vcf | bgzip -c > $variable_sites
-tabix -s1 -b2 -e2 $variable_sites

@@ -29,7 +29,7 @@ source setup.sh
 # === Input === #
 
 # VCF files for the parents and F8s
-parental_vcf=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
+parental_vcf=03_processing/01_parental_SNP_matrix/output/1163g.filtered_by_site.vcf.gz
 progeny_vcf=03_processing/02_original_sample_sheet/output/F8_snp_matrix.vcf.gz
 # VCF file for the extended RegMap set
 regmap_vcf=01_data/03_parental_genotypes/Arabidopsis_2029_Maf001_Filter80.vcf.gz

@@ -1,64 +1,77 @@
 #!/usr/bin/env bash
 
-# Filter variants from the parental VCF.
+# Filter variants from the 1001 genomes dataset.
 # 
 # Filter variants based on the results of 01_data_inspection.sh and the plotting
 # script.
-# 
-# Input:
-    # - Full VCF file from Brachi et al.
-    # - Text file of heterozygous variants to purge created by 01_inspect_initial_snp_matrix.sh
-# Output: A zipped VCF file with variants filtered for indels, minor allele count,
-#     missing data, sequence quality and depth.
 # 
 # Tom Ellis, adapting code from https://speciationgenomics.github.io/filtering_vcfs/
 # 3rd January 2024
 
 # SLURM
-#SBATCH --job-name=filter_parental_VCF
-#SBATCH --output=slurm/%x.out
-#SBATCH --error=slurm/%x.err
-#SBATCH --mem=40GB
+#SBATCH --job-name=03_filter_1001g
+#SBATCH --output=03_processing/01_parental_SNP_matrix/slurm/%x.out
+#SBATCH --error=03_processing/01_parental_SNP_matrix/slurm/%x.err
+#SBATCH --mem=1GB
 #SBATCH --qos=medium
-#SBATCH --time=24:00:00
+#SBATCH --time=12:00:00
 
 source setup.sh
 
+# === Input ===
+
 # Input VCF file
-vcf_in=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
+vcf_1163=01_data/03_parental_genotypes/1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf.gz
 # List of sites to be purged
 heterozygous_sites=03_processing/01_parental_SNP_matrix/summary_stats_intitial/heterozygous_sites_to_purge.tsv
 
-# Directrory to store the VCF files created
-outdir=03_processing/01_parental_SNP_matrix/output
-# Target for an intermediate VCF file
-vcf_intermediate=$outdir/temp_parental_SNP_matrix.vcf.gz
-# Target path for the output
-vcf_out=03_processing/01_parental_SNP_matrix/output/filtered_parental_SNP_matrix_mac20.vcf.gz
 
-# set filters
-mac=20
+# === Output ===
+
+# Directrory to store the VCF files created
+outdir=$scratchdir/01_parental_SNP_matrix/03_filter_VCF
+mkdir -p $outdir
+
+# Target for an intermediate VCF file
+vcf_without_het_sites=$outdir/vcf_without_het_sites.vcf
+
+# Target path for the output
+vcf_out=03_processing/01_parental_SNP_matrix/output/1163g.filtered_by_site.vcf.gz
+
+# Text file giving positions of filtered SNPs for later.
+variable_sites=03_processing/01_parental_SNP_matrix/output/biallelic_snp_positions.tsv.gz
+
+# === Main ===
+
+echo "Filtering out heterozygous sites."
+bcftools view -T ^$heterozygous_sites $vcf_1163 > $vcf_without_het_sites
+
+echo "Filtering for mac, missingness, quality and depth."
 missingness=0.9
 min_quality=30
 min_depth=10
 max_depth=40
 
-# Use bcftools to filter heterozygous sites.
-bcftools view -T ^$heterozygous_sites $vcf_in > $vcf_intermediate
-if [ $? -eq 0 ] ; then echo "Filtering heterozygous sites completed successfully"; fi
 
-# Use vcftools to filter mac, missingness, quality an depth.
-vcftools --gzvcf $vcf_intermediate  \
-    --remove-indels \
-    --mac $mac \
-    --max-missing $missingness \
-    --minQ $min_quality \
-    --min-meanDP $min_depth \
-    --max-meanDP $max_depth \
-    --recode --stdout | \
-bgzip -c > $vcf_out
-if [ $? -eq 0 ] ; then echo "Filtering with vcftools completed successfully"; fi
-
+vcftools \
+        --gzvcf $vcf_without_het_sites  \
+        --remove-indels \
+        --max-missing $missingness \
+        --minQ $min_quality \
+        --min-meanDP $min_depth \
+        --max-meanDP $max_depth \
+        --remove-indels \
+        --min-alleles 2 \
+        --max-alleles 2 \
+        --recode \
+        --recode-INFO-all \
+        --stdout | \
+    bgzip -c > $vcf_out
 tabix $vcf_out
 
-rm $vcf_intermediate
+# create targets file
+echo "Creating targets file."
+bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' $vcf_out | bgzip -c > $variable_sites
+tabix -s1 -b2 -e2 $variable_sites
+
+cp $vcf_out 03_processing/01_parental_SNP_matrix/output/

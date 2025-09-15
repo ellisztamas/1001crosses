@@ -31,7 +31,8 @@ infile=${infile_array[$i]}
 genome=01_data/01_reference_genome/TAIR10_chr_all.fas
 
 # Text file listing SNP positions.
-variable_sites=03_processing/01_parental_SNP_matrix/output/variable_sites.tsv.gz
+variable_sites=03_processing/01_parental_SNP_matrix/output/biallelic_snp_positions.tsv.gz
+
 
 
 # === Output files ===
