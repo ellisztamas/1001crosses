@@ -17,7 +17,7 @@ not in this VCF file.
 # Imputed SNPs for the rest of the RegMap dataset
 
 Filename:
-`Arabidopsis_2029_Maf001_Filter80.vcf.gz`
+`RegMap_panel/Arabidopsis_2029_Maf001_Filter80.vcf.gz`
 
 From the publication:
 
@@ -40,3 +40,7 @@ They are labelled
 - `1435_seedstock.bam`
 - `5835_seedstock_1.bam`
 - `5835_seedstock_2.bam`
+
+# Other files
+
+`segregating_parents.txt` is a list of parents I think are segregating somewhere in the genome.
