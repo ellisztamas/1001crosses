@@ -1,0 +1,3930 @@
+---
+title: "Validation of F8 haplotypes inferred from HMM"
+author: "Tom Ellis"
+date: "2025-08-21"
+format:
+  html:
+    toc: true
+    self-contained: true
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library(tidyverse))
+
+```
+
+This documents gives a visual check of recombination-breakpoints inferred for each F8 individual using a hidden-markov model.
+The plots show inferred ancestry at each marker along the genome on each chromosome.
+Ancestry is separated along the y-axis - values of 0, 1 and 2 indicate ancestry of parent 1, heterozygosity, and parent 2.
+
+Each plot is given with a short description of the changes I made
+(manually) to the `.bed` file accompanying each plot indicating the start and end of each ancestry block.
+Note that these files have already been purged of any blocks consisting of only a single marker.
+
+Here is an overview of the common patterns I ran into:
+
+* **Small haplotypes** (abbreviated to "sh" below): Apparent 'haplotypes' containing a very small number of markers. This likely reflects miss-alignment of reads from regions with homology to non-reference sequences. They are probably bogus and can be removed.
+* **Heterozygosity**: Some lines are still segregating in some places. In these cases I assigned haplotypes as 'het', and will use the data from the offspring genotypes themselves.
+* **Private haplotypes**: If parental lines are not completely inbred it can be that a sequenced haplotype in the 1001-genomes project is not the same as the haplotype that made it into the cross. The crossed progeny therefore has a 'private' haplotype not found in either parent. In these cases I use the sequence data from the offspring.
+* **rDNA cluster**: *A. thaliana* has a cluster of rDNA repeats to the left of the centromere on Chr4. I frequently found that the HMM would jump back and forth between parental genotypes in this region, especially between around 1.6 and 2.8mb. In these cases I treated the region as if it had a private haplotype.
+* **Starts and ends of chromosomes**: It found quite a lot of apparent breakpoints at the tips of chromosomes. I do not really trust these regions, but I generally left them in place.
+
+This script identifies start and ends of identifiable matches to the parental genomes.
+The next step in the pipeline is to fill in the gaps between those haplotypes as private haplotypes to ensure the whole genome is covered.
+Then, they can be used to create synthetic VCF files for each F8 that uses the knoweldge of the parental genomes.
+
+```{r plotting-function}
+
+marker_filenames <- Sys.glob(
+  "03_processing/09_impute_haplotypes/output/07_impute_haplotypes/*tsv"
+  )
+
+# Define a function to plot each input file.
+
+plot_hmm <- function(hidden_state_file){
+  
+  progeny_name <- basename(hidden_state_file)
+  progeny_name <- gsub("_marker_states.tsv", "", progeny_name)
+
+  hidden_states <- read_tsv(
+    hidden_state_file,
+    show_col_types = FALSE
+    )
+  
+  # Plot states across the genome
+  hidden_states %>%
+    mutate(
+      ancestry_int = case_when(
+        ancestry == "parent1" ~ 0,
+        ancestry == "het" ~ 1,
+        ancestry == "parent2" ~ 2
+      ),
+      ancestry = factor(ancestry, levels = c("parent1", "het", "parent2"))
+    ) %>%
+    ggplot(aes(x=pos/1e6, y= ancestry_int)) +
+    geom_line() +
+    geom_point(aes(colour=ancestry), size=0.1) +
+    labs(
+      x = "Position (Mb)",
+      y = "Ancestry",
+      title = progeny_name
+    ) +
+    facet_grid(rows=vars(chr)) +
+    scale_x_continuous(breaks = seq(0, 30, by = 2)) +
+    scale_y_continuous(breaks = seq(0, 30, by = 2)) +
+    theme_bw()
+  
+}
+
+```
+
+## 1002x6038 rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1002x6038_rep1_marker_states.tsv")
+```
+
+* Short 6038 haplotype on Chr1 and the starts of chr4 and 5 are ambiguous.
+* Bed file left unchanged.
+
+
+## 1002x6038 rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1002x6038_rep2_marker_states.tsv")
+```
+
+3 singletons to be removed
+
+## 1002x6244 rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1002x6244_rep1_marker_states.tsv")
+```
+
+Many small heterozygotes to remove
+
+## 1002x6244 rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1002x6244_rep2_marker_states.tsv")
+```
+
+Eight sh to remove
+Heterozygosity likely real.
+
+## 1061x6131 rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1061x6131_rep1_marker_states.tsv")
+```
+
+All correct
+
+## 1061x6131 rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1061x6131_rep2_marker_states.tsv")
+```
+
+One error, real heterozygosity.
+One small 6131 haplotype on chr4 actually matches both parents pretty well; changed to private.
+
+## 1062x6108 rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1062x6108_rep1_marker_states.tsv")
+```
+
+One error Chr5.
+
+## 1062x6108 rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1062x6108_rep2_marker_states.tsv")
+```
+
+All correct
+
+## 1063x1435_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1063x1435_rep1_marker_states.tsv")
+```
+
+* I do not currently have reliable genotype data for 1435, so set parent2 haplotypes to private.
+* Nine sh to remove.
+
+## 1063x1435_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1063x1435_rep2_marker_states.tsv")
+```
+
+* 10 sh to remove.
+* I do not currently have reliable genotype data for 1435, so set parent2 haplotypes to private.
+<!-- * Short 1435 haplotype on Chr3 ambiguous; set this to private. -->
+
+## 1158x6092_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1158x6092_rep1_marker_states.tsv")
+```
+
+One sh to remove on chr5
+
+## 1158x6092_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1158x6092_rep2_marker_states.tsv")
+```
+
+* Lots going on here!
+* One sh on chr 4 to remove.
+* Heterozygous stretches are likely correct.
+* Set Chr4 0-2.8mb to private.
+
+## 1254x6076_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1254x6076_rep1_marker_states.tsv")
+```
+
+Three sh to remove.
+The funny business at the end of chr5 actually match the parents quite well.
+
+## 1254x6076_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1254x6076_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+Heterozygosity probably real.
+
+## 1257x8334_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1257x8334_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 1257x8334 rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1257x8334_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 1317x6276_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1317x6276_rep1_marker_states.tsv")
+```
+
+Four sh to remove.
+
+## 1317x6276_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1317x6276_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 1318x6035_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1318x6035_rep1_marker_states.tsv")
+```
+
+4 sh to remove.
+The two messy bits on Chr2, and the short section on chr5  set to private.
+
+## 1318x6035_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1318x6035_rep2_marker_states.tsv")
+```
+
+Messy section on Chr 2 set to private.
+
+## 1435x6240_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1435x6240_rep1_marker_states.tsv")
+```
+
+* * I do not currently have reliable genotype data for 1435, so set parent1 haplotypes to private.
+* The heterozygous are likely correct, if sometimes messy; changed these to one contiguous chromosome:
+  * Chr1:
+    * 20.4 to 25.6mb
+    * 29.4 onwards
+  * Chr2:
+    * 9.5 to 10.1mb
+    * 14.1 to 19.7mb
+  * Chr5: 0.75 to 21.5mb
+* I removed the smaller heterozygous section on Chr5.
+
+## 1552x1158_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1552x1158_rep1_marker_states.tsv")
+```
+
+2 sh to remove.
+Heterozygosity is real.
+
+## 1552x1158_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1552x1158_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 1585x9427_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1585x9427_rep1_marker_states.tsv")
+```
+
+7 sh to remove.
+
+## 1585x9427_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/1585x9427_rep2_marker_states.tsv")
+```
+
+2 heterozygous sh to remove.
+
+## 175x6913_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/175x6913_rep1_marker_states.tsv")
+```
+
+* There are two dubious bits on either side of the centromere on chromosome 1 that I set as private haplotypes.
+These are in the same place in 175x6913_rep2
+* The short sections of 175 ancestry at the start of chr 2 and 5 may be dubious, but I will leave them for now.
+* 1 additional sh to remove on chr 1.
+
+## 175x6913_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/175x6913_rep2_marker_states.tsv")
+```
+
+There are two dubious bits on either side of the centromere on chromosome 1 that I set as private haplotypes.
+These are in the same place in 175x6913_rep1
+
+## 5829x9336_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5829x9336_rep1_marker_states.tsv")
+```
+
+This line was identified as having incorrect parentage.
+
+## 5829x9336_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5829x9336_rep2_marker_states.tsv")
+```
+
+This line was identified as having incorrect parentage.
+
+## 5830x6085_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5830x6085_rep1_marker_states.tsv")
+```
+
+One sh to remove from Chr5.
+The short haplotypes at the start of Chr 2, 4 and 5 raise an eyebrow, but they seem to match the ibdpainting results.
+
+## 5830x6085_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5830x6085_rep2_marker_states.tsv")
+```
+
+There is heterozygosity on Chr 2, and evidence of private haplotypes on Chr 4 and 5.
+Based on ibdpainting results I think these are real.
+Removed one additional sh on chr 5.
+
+## 5831x8237_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5831x8237_rep1_marker_states.tsv")
+```
+
+I think the HMM has made some questionable calls here, based on ibdpainting results:
+
+* The blue stretch of 8237 ancestry on Chr3 is ambiguous.
+* I think the short 8237 haplotype on chr 4 is incorrect.
+* I think the 8237 haplotype on chr 5 should be heterozygous.
+
+I will set these to private.
+
+In addition there are 5 sh to remove.
+
+
+## 5831x8237_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5831x8237_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 5835x9058_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5835x9058_rep1_marker_states.tsv")
+```
+
+* I do not currently have reliable genotype data for 5835, so set parent1 haplotypes to private.
+* Heterozygosity on chr1 is real.
+* Private haplotype chr1 from 11 to 16 mb.
+* Short private haplotype Chr2 ca 15mb.
+* I think the red haplotype at the start of Chr5 should be private, because there are Swedish haplotypes that match here.
+
+## 5835x9058_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5835x9058_rep2_marker_states.tsv")
+```
+
+* I do not currently have reliable genotype data for 5835, so set parent2 haplotypes to private.
+* Private haplotype chr1 from 11 to 16 mb.
+* Short private haplotype Chr2 ca 15mb.
+* 6 additional sh to remove.
+
+## 5856x9452_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5856x9452_rep1_marker_states.tsv")
+```
+
+One sh removed.
+
+## 5856x9452_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5856x9452_rep2_marker_states.tsv")
+```
+
+* Sequence data for this sample are not very good.
+* I think the longer section of heterozygosity is real, but the two small flanking regions are not.
+* I think the second 5836 (red) haplotype on Chr3 is bogus, but the data are ambiguous; set this to private.
+* I think the two heterozygous stretches on Chr4 are one contiguous stretch; I set the parent1 and parent2 haplotypes to heterozygous.
+* 9 additional sh to remove.
+
+## 5865x8426_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5865x8426_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 5865x8426_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5865x8426_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 5867x6913_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5867x6913_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 5867x6913_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/5867x6913_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 6011x6017_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6011x6017_rep2_marker_states.tsv")
+```
+
+Data are really poor.
+2 sh removed.
+
+## 6012x997_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6012x997_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 6012x997_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6012x997_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6013x6136_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6013x6136_rep1_marker_states.tsv")
+```
+
+* This line was thought to be 6013x8241, but ibdpainting indicated it is likely to be 6013x6136.
+* Set to private:
+  * Chr 1: 
+    * 30mb onwards
+  * Chr3:
+    * 0 to 8mb (it isn't clear from the HMM, but the ibdpainting plot shows evidence of a private haplotype).
+  * Chr4:
+    * 0 to 3mb
+  * Chr5:
+    * 15 to 18mb
+
+In addition, there are two sh to remove.
+
+## 6013x6136_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6013x6136_rep2_marker_states.tsv")
+```
+
+* This line was thought to be 6013x8241, but ibdpainting indicated it is likely to be 6013x6136.
+* Set to private:
+* Chr 3:
+  * 6 to 12.5mb
+* Chr 5:
+  * 13 to 16 mb
+
+## 6017x9392_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6017x9392_rep1_marker_states.tsv")
+```
+
+Set the small red haplotype on Chr3 to private.
+
+## 6017x9392_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6017x9392_rep2_marker_states.tsv")
+```
+
+Removed two sh.
+
+## 6019x6012_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6019x6012_rep1_marker_states.tsv")
+```
+
+Chromosome 4 has a long private haplotype between 11 and 15mb.
+I set the small haplotypes at the start of Chr5 and around 8.5mb to private.
+I removed two additional sh.
+
+## 6019x6012_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6019x6012_rep2_marker_states.tsv")
+```
+
+Lot's going on here, and this would be worth repeating.
+
+Set to private:
+
+* All of Chr2.
+* Chr3:
+  * Up to 6.5mb
+  * 11 to 19mb
+* Chr 4:
+  * 9 to 16.5mb
+* Chr5:
+  Short haplotype around 21mb
+
+## 6020x6030_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6020x6030_rep1_marker_states.tsv")
+```
+
+I would set the tiny red haplotype at the start of Chr2 to private.
+Removed additional sh.
+
+## 6020x6030_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6020x6030_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6021x9407_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6021x9407_rep1_marker_states.tsv")
+```
+
+Remove 3 sh.
+
+## 6021x9407_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6021x9407_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6023x9380_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6023x9380_rep1_marker_states.tsv")
+```
+
+* These lines are from about 100 metres of one another in the village of Flyinge, and appear to be identical over almost all the genome.
+* The sequence data forthe offspring look good, so we can just use this directly and not use parental data at all.
+
+## 6024x6124_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6024x6124_rep1_marker_states.tsv")
+```
+
+There's a region around 14mb on Chr2 where there are few SNP calls.
+ibdpainting suggests that both parents fit similarly well here, for those SNPs where a comparison can be drawn.
+I set 13-16mb to private.
+
+I set the red haplotype on Chr 4 to private.
+
+Removed 2 sh.
+
+## 6024x6124_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6024x6124_rep2_marker_states.tsv")
+```
+
+Removed 1 sh.
+
+## 6025x6046_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6025x6046_rep1_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish High Coast and likely share tracts identical by descent.
+* Set to private:
+  * Chr 1: Final haplotype around 28mb
+  * Chr 3: 11.1-16.1 mb (centromere)
+
+## 6025x6046_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6025x6046_rep2_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish High Coast and likely share tracts identical by descent.
+
+* Chr3: set everything up to 16mb to private.
+* Chr4: Set the tiny red haplotype to blue.
+
+## 6030x992_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6030x992_rep2_marker_states.tsv")
+```
+
+This line was identified as incorrect.
+
+## 6034x6231_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6034x6231_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6034x6231_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6034x6231_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6035x9433_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6035x9433_rep1_marker_states.tsv")
+```
+
+Short red haplotype on Chr3 set to private.
+Removed 2 sh.
+
+## 6035x9433_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6035x9433_rep2_marker_states.tsv")
+```
+
+Data are pretty poor, but I think usable here.
+
+I set the short red haplotype on Chr4 to blue
+Removed one sh.
+
+## 6036x1318_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6036x1318_rep1_marker_states.tsv")
+```
+
+I think Chr5 has a long private haplotype derived from 1318.
+Since I have good sequence data for this sample I set everything up to the breakpoint at 15mb to private.
+
+## 6036x1318_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6036x1318_rep2_marker_states.tsv")
+```
+
+The ibdpainting plot for this shows there are probably extensive private haplotypes derived from 1318.
+Since I have good sequence data for this sample, I set all of Chr2 to private, as well as everything on Chr5 up to the breakpoint at 18mb.
+
+## 6036x6203_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6036x6203_rep1_marker_states.tsv")
+```
+
+* These accessions are from Skåne, and likely share tracts identical by descent.
+* I set Chr1 up to 18mb and Chr4 up to 10mb to private.
+* Removed one sh.
+
+## 6038x6039_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6038x6039_rep2_marker_states.tsv")
+```
+
+* The GPS positions for both of these lines are given as being *identical* from a railway just south of Tömestorp.
+* I moved the start of the red haplotype on Chr2 up to 11.2mb.
+* Removed 1 sh on chr 4.
+
+## 6039x5835_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6039x5835_rep2_marker_states.tsv")
+```
+
+* I do not currently have reliable genotype data for 5835, so set parent2 haplotypes to private.
+Removed segregating haplotype on Chr2.
+removed 5 additional sh.
+
+## 6040x6041_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6040x6041_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6040x6041_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6040x6041_rep2_marker_states.tsv")
+```
+
+Removed 1 sh.
+
+## 6041x6153_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6041x6153_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6041x6153_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6041x6153_rep2_marker_states.tsv")
+```
+
+Heterozygous bit of Chr1 extended to include blue haplotype.
+Removed 2 sh.
+
+## 6043x9453_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6043x9453_rep1_marker_states.tsv")
+```
+
+* Chr1:
+  * 8-10mb set to private
+  * Removed the red haplotype on Chr 1 around 17mb.
+  * 26-29mb set to private
+* Removed one sh on Chr4.
+
+
+## 6043x9453_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6043x9453_rep2_marker_states.tsv")
+```
+
+* removed short blue haplotype in Chr1
+* Removed 5 sh.
+
+## 6046x6191_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6046x6191_rep1_marker_states.tsv")
+```
+
+* 6191 is known to be segregating.
+* Entire Blue haplotype on Chr3 set to private
+* Set Chr 4 8-13mb to private
+* Removed 5 additional sh.
+
+## 6046x6191_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6046x6191_rep2_marker_states.tsv")
+```
+
+* 6191 is known to be segregating.
+* Set the entire first blue haplotype on Chr2 to private.
+* Set Chr3 14-17mb to private.
+* Set Chr3 10-13mb to private.
+* Removed additional 3 sh.
+
+## 6064x9404_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6064x9404_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6064x9404_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6064x9404_rep2_marker_states.tsv")
+```
+
+* There are some private haplotypes here.
+* Chr1:
+  * 6.5-8.5mb set to private
+  * 15.5-13mb set to private
+* Removed four sh.
+
+
+## 6069x9470_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6069x9470_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6069x9470_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6069x9470_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6070x6019_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6070x6019_rep1_marker_states.tsv")
+```
+
+* Private 6070 haplotype Chr4.
+  * 11-15mb set to private
+* Removed short blue haplotype Chr5.
+* Removed 4 additional sh.
+
+## 6070x6019_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6070x6019_rep2_marker_states.tsv")
+```
+
+* Private 6070 haplotype Chr4.
+  * 11-15mb set to private
+* Removed short haplotype Chr5.
+
+## 6071x6145_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6071x6145_rep1_marker_states.tsv")
+```
+
+* Set the short 6145 haplotype at the start of Chr4 to private.
+* Removed one additional sh.
+
+## 6071x6145_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6071x6145_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6073x9476_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6073x9476_rep2_marker_states.tsv")
+```
+
+* Set the start of Chr1 to 9476
+* Set 7-9mb Chr1 to private.
+
+## 6074x9421_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6074x9421_rep1_marker_states.tsv")
+```
+
+* Set short red haplotype on Chr5 to private
+
+## 6074x9421_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6074x9421_rep2_marker_states.tsv")
+```
+
+* Removed short blue haplotype around 3mb on Chr5
+* Removed two additional sh.
+
+## 6076x1254_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6076x1254_rep1_marker_states.tsv")
+```
+
+* Removed two sh.
+
+## 6076x1254_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6076x1254_rep2_marker_states.tsv")
+```
+
+* Removed 2 sh.
+
+## 6085x9409_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6085x9409_rep1_marker_states.tsv")
+```
+
+* Chr2: 7.5-8.5mb set to private
+* Removed 4 additional sh.
+
+## 6085x9409_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6085x9409_rep2_marker_states.tsv")
+```
+
+* Removed 2 sh.
+
+## 6086x8222_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6086x8222_rep1_marker_states.tsv")
+```
+
+* Removed 1 sh.
+
+## 6086x8222_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6086x8222_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6088x9386_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6088x9386_rep1_marker_states.tsv")
+```
+
+* Removed one sh.
+
+## 6088x9386_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6088x9386_rep2_marker_states.tsv")
+```
+
+* Removed three sh.
+
+## 6090x9416_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6090x9416_rep1_marker_states.tsv")
+```
+
+* Correct
+
+## 6090x9416_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6090x9416_rep2_marker_states.tsv")
+```
+
+* Set the first blue haplotype on chr 2 to private.
+* Removed two additional sh
+
+## 6092x6125_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6092x6125_rep1_marker_states.tsv")
+```
+
+* First red haplotype on Chr 1 changed to private
+* Start of Chr2 set to red.
+* Removed one additional sh
+
+## 6092x6125_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6092x6125_rep2_marker_states.tsv")
+```
+
+* Start of Chr4 set to 6092
+
+## 6094x9369_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6094x9369_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6094x9369_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6094x9369_rep2_marker_states.tsv")
+```
+
+Removed small blue haplotypes at the start of Chr1 and on Chr 5.
+
+## 6097x1318_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6097x1318_rep1_marker_states.tsv")
+```
+
+* First small red and blue haplotypes on Chr2 set to private.
+* Removed small red haplotype on Chr4.
+* Removed 3 additional sh.
+
+## 6097x1318_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6097x1318_rep2_marker_states.tsv")
+```
+
+* Unfortunately data are not very good here; this should be repeated.
+* Set the first 7mb of Chr5 to private.
+* Removed one sh on Chr 2.
+
+## 6098x9451_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6098x9451_rep1_marker_states.tsv")
+```
+
+* 9451 is segregating across most of the genome, except Chr3 and the first half of Chr1.
+* In addition, there are additional heterozygous tracts on Chr3 and 5.
+* Set to private:
+  * Chr1: 23.6 to 24.9mb
+  * Chr4: 0 to 9.8mb
+  * All of Chr5
+* Removed one sh from Chr3.
+
+## 6098x9451_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6098x9451_rep2_marker_states.tsv")
+```
+
+* I set entirety of the blue (9451) haplotypes on Chr 4 and 5 to private.
+* Removed 7 additional sh.
+
+## 6099x9394_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6099x9394_rep2_marker_states.tsv")
+```
+
+* I set the short blue, then red haplotypes around 20-21mb on Chr3 to private.
+* Removed two sh.
+
+## 6100x6069_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6100x6069_rep1_marker_states.tsv")
+```
+
+* Correct
+
+## 6100x6069_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6100x6069_rep2_marker_states.tsv")
+```
+
+* Correct
+
+## 6104x6034_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6104x6034_rep1_marker_states.tsv")
+```
+
+* These lines appear to share long tracts identical by descent, but are not geographically very close (6104 is from Lund, 6034 is from Törmestorp).
+* Most of the gaps here will be filled in automatically as private.
+* Set Chr5 up to 7.3mb to private
+* Removed one sh.
+
+## 6104x6034_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6104x6034_rep2_marker_states.tsv")
+```
+
+* These lines appear to share long tracts identical by descent, but are not geographically very close (6104 is from Lund, 6034 is from Törmestorp).
+* Set to private:
+  * Chr1:
+    * 1.8 to 8.2mb
+    * 11.2 to 17.9mb
+  * Chr4: 5.8 to 17.7
+  * Chr5: 1 to 7.4mb
+
+## 6105x5829_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6105x5829_rep1_marker_states.tsv")
+```
+
+Set to private:
+
+* Chr1:
+  * 0 to 1 mb
+  * 22 to29 mb
+* Chr2: 15 mb onwards
+* Chr3:
+  * 0 to 0.5mb
+  *   7 to 18mb
+
+## 6105x5829_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6105x5829_rep2_marker_states.tsv")
+```
+
+Set to private:
+
+* Chr1:
+  * 0-0.7mb
+  * 23.5-26mb
+* All of Chr2
+* Chr3:
+  * 0-0.5mb
+  * 16-16.5mb
+* Chr5:
+  * 3.5-23.5mb
+  
+Removed one additional sh on Chr1.
+
+## 6106x6071_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6106x6071_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6106x6071_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6106x6071_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6107x6128_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6107x6128_rep1_marker_states.tsv")
+```
+
+Set to private
+
+* Chr1: 26mb onwards
+* Chr4: 0-3mb
+* Chr5: 0-2mb
+
+## 6107x6128_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6107x6128_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 6109x9343_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6109x9343_rep1_marker_states.tsv")
+```
+
+* First blue haplotype on chr 2 set to private
+* Start of Chr4 changed to 6109.
+
+## 6109x9343_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6109x9343_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6112x6166_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6112x6166_rep1_marker_states.tsv")
+```
+
+* Removed the section that jumps back and fortharound 8.5mb on Chr5.
+Removed one additional sh.
+
+## 6112x6166_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6112x6166_rep2_marker_states.tsv")
+```
+
+* Set the first mb or so of Chr4 to private.
+* Removed one sh.
+
+## 6113x6917_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6113x6917_rep1_marker_states.tsv")
+```
+
+* I think the sh on Chr 5 is a larger private haplotype.
+* I set 7.5-9mb to private
+
+## 6113x6917_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6113x6917_rep2_marker_states.tsv")
+```
+
+* Set the tiny haplotype on Chr4 to private.
+* Removed three sh.
+
+## 6114x9381_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6114x9381_rep1_marker_states.tsv")
+```
+
+* Set the first 12mb of Chr2 to private.
+
+
+## 6114x9381_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6114x9381_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6115x1585_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6115x1585_rep1_marker_states.tsv")
+```
+
+Removed 5 sh.
+
+## 6115x1585_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6115x1585_rep2_marker_states.tsv")
+```
+
+Two sh removed.
+
+## 6118x8227_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6118x8227_rep1_marker_states.tsv")
+```
+
+Set both the small red haplotypes on Chr 2 and 5 to private.
+
+## 6118x8227_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6118x8227_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6124x6184_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6124x6184_rep1_marker_states.tsv")
+```
+
+* Removed one sh.
+* Set the start of Chr5 to private
+
+## 6124x6184_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6124x6184_rep2_marker_states.tsv")
+```
+
+* Set 1.7-4mb to private.
+
+## 6125x6099_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6125x6099_rep1_marker_states.tsv")
+```
+
+* Set 1.7-3mb on Chr4 to private.
+* Removed one sh.
+
+## 6125x6099_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6125x6099_rep2_marker_states.tsv")
+```
+
+* Set start of Chr2 to private
+* Set 0-3mb on Chr4 to private
+* Removed 3 sh.
+
+## 6126x6172_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6126x6172_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6126x6172_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6126x6172_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6127x6918_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6127x6918_rep1_marker_states.tsv")
+```
+
+* There is a large private haplotype on Chr4
+* Set to private from 9.3mb onwards.
+* Removed one additional sh.
+
+## 6127x6918_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6127x6918_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6128x9413_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6128x9413_rep1_marker_states.tsv")
+```
+
+* Set 1.7-2.7mb on Chr4 to private.
+* Removed sh Chr1.
+
+## 6128x9413_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6128x9413_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6131x6113_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6131x6113_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6131x6113_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6131x6113_rep2_marker_states.tsv")
+```
+
+Sparse, but correct.
+
+## 6132x6255_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6132x6255_rep1_marker_states.tsv")
+```
+
+* Set 1.7-2.7mb on Chr4 to private.
+
+## 6132x6255_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6132x6255_rep2_marker_states.tsv")
+```
+
+The ibdpainting plot indicated that the data were too poor to use, but somehow I recorded it as correct, and the HMM looks unremarkable. Repeat this.
+
+## 6133x6020_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6133x6020_rep1_marker_states.tsv")
+```
+
+* Set start of Chr1 to 6020.
+* Set the end of Chr1 to private.
+* Set the first 3mb Chr5 to private
+* Set the end of Chr5 to private
+
+## 6133x6020_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6133x6020_rep2_marker_states.tsv")
+```
+
+* Set the small haplotypes on Chr 1 and 2 to private.
+* Removed sh on Chr4
+
+## 6134x6013_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6134x6013_rep1_marker_states.tsv")
+```
+
+* Set start of Chr 4 to 6013.
+* Removed one sh
+
+## 6134x6013_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6134x6013_rep2_marker_states.tsv")
+```
+
+* Private haplotype on chr2 extended left to join 6013 haplotype.
+* Set end of Chr5 to private.
+
+## 6136x6064_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6136x6064_rep1_marker_states.tsv")
+```
+
+* ibdpainting results indicate a private haplotype on Chr 5.
+  * I set 14.6-18.5mb to private.
+  
+## 6136x6064_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6136x6064_rep2_marker_states.tsv")
+```
+
+* I set Chr4 up to 2.7mb to private.
+* ibdpainting results indicate a private haplotype on Chr 5.
+  * I set 14.6-18.5mb to private.
+
+## 6137x5867_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6137x5867_rep1_marker_states.tsv")
+```
+
+* 6137 has many private haplotypes.
+* Set to private:
+  * Chr1: 21.5 to 27mb.
+  * Chr2: 7mb onwards
+  * Chr3: 7.5mb onwards
+  * Chr4: 15.5mb onwards
+  
+## 6137x5867_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6137x5867_rep2_marker_states.tsv")
+```
+
+* 6137 has many private haplotypes.
+* Set to private:
+  * Chr1: 0-6.8mb.
+  * Chr2: 7.9mb onwards
+  * Chr3: Both 6137 haplotypes.
+  * Chr4: 9mb onwards
+  
+## 6138x6122_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6138x6122_rep1_marker_states.tsv")
+```
+
+* These lines are from either side of the lake Östra Ringsjön, and likely share tracts identical by decent.
+* Set the gap in Chr1 to private (2.2 to 10mb)
+* Set the gaps in Chr4 where there are no markers (roughly 6-8mb and 10-13mb) to private.
+* Set the massive gap at the start of Chr5 to private
+
+## 6138x6122_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6138x6122_rep2_marker_states.tsv")
+```
+
+* These lines are from either side of the lake Östra Ringsjön, and likely share tracts identical by decent.
+* Set to private:
+  * Chr1: 2.2 to 10.1mb
+  * Chr4: 9.7 to 18.6mb
+  * Chr5: 0 to 6mb
+* Removed one sh.
+
+## 6140x9388_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6140x9388_rep1_marker_states.tsv")
+```
+
+* There is a private haplotype on Chr5
+* Set Chr5 14.6-19mb to private
+* Removed 1 sh
+
+## 6140x9388_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6140x9388_rep2_marker_states.tsv")
+```
+
+* Blue haplotype Chr5 9-10mb set to private.
+* Removed 2 sh.
+
+## 6142x7517_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6142x7517_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6142x7517_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6142x7517_rep2_marker_states.tsv")
+```
+
+Removed three sh.
+
+## 6145x8247_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6145x8247_rep1_marker_states.tsv")
+```
+
+* The parents are relatively close neighbours from Höör and Sösdala, and likely share long tracts identical by descent.
+* Set to private, based on ibdpainting results:
+  * Chr1: Up to 11.5mb
+  * Chr2:
+    * 0-3mb
+    * 6.5-13mb
+  * Chr3: up to 2.5mb
+  * Chr 4: 13-16mb
+  * Chr 5:
+    * 3-6.5
+    * 9-12
+    * 15.5-19
+
+## 6145x8247_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6145x8247_rep2_marker_states.tsv")
+```
+
+* The parents are relatively close neighbours from Höör and Sösdala, and likely share long tracts identical by descent.
+* Set to private:
+  * Chr1 up to 11.5mb
+  * Chr2:
+    * Up to 2mb
+    * 6.5 to 13mb
+  * Chr3 up to 2.5mb
+  * Chr5:
+    * 3.5-5.5
+    * 8-12
+    * 15-19
+
+## 6148x6138_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6148x6138_rep1_marker_states.tsv")
+```
+
+* Data are sparse!
+* Set to private:
+  * Chr 1:
+    * Up to 10mb
+    * 28 onwards
+  * Chr2: Up to 5.5mb
+
+## 6148x6138_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6148x6138_rep2_marker_states.tsv")
+```
+
+* Data are sparse!
+* Set to private:
+  * Chr1 up to 10mb
+  * Chr2 up to 7.5mb
+
+## 6149x9395_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6149x9395_rep1_marker_states.tsv")
+```
+
+Markers are sparse on Chr5, but this is around the centromere, so I will go ahead and say this appears correct.
+
+## 6149x9395_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6149x9395_rep2_marker_states.tsv")
+```
+
+Markers are sparse on Chr5, but this is around the centromere, so I will go ahead and say this appears correct.
+
+## 6150x6218_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6150x6218_rep1_marker_states.tsv")
+```
+
+* Chr4: 1.8-2.7mb set to private
+
+## 6150x6218_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6150x6218_rep2_marker_states.tsv")
+```
+
+* Set first 3mb of Chr4 to private
+
+## 6151x9408_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6151x9408_rep1_marker_states.tsv")
+```
+
+* Set the small red haplotype on Chr5 to private.
+
+## 6151x9408_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6151x9408_rep2_marker_states.tsv")
+```
+
+* Remove 1 sh.
+
+## 6154x6221_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6154x6221_rep1_marker_states.tsv")
+```
+
+Set the 6221 haplotype at 11mb on Chr1 to private
+
+## 6154x6221_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6154x6221_rep2_marker_states.tsv")
+```
+
+Remove 3 sh.
+
+## 6163x6111_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6163x6111_rep1_marker_states.tsv")
+```
+
+Remove 1 sh.
+
+## 6163x6111_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6163x6111_rep2_marker_states.tsv")
+```
+
+* Set the first 1.5mb of Chr1 to private
+* Set the blue haplotype around 12mb on Chr1 to private.
+* Remove one sh
+
+## 6163x9405_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6163x9405_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6163x9405_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6163x9405_rep2_marker_states.tsv")
+```
+
+Remove two sh.
+
+## 6166x7519_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6166x7519_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6166x7519_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6166x7519_rep2_marker_states.tsv")
+```
+
+Set Chr4 1.7-2.7 to private
+
+## 6169x8230_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6169x8230_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6169x8230_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6169x8230_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6171x6074_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6171x6074_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6171x6074_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6171x6074_rep2_marker_states.tsv")
+```
+
+Remove one sh.
+
+## 6172x6148_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6172x6148_rep1_marker_states.tsv")
+```
+
+Two sh to remove.
+
+## 6172x6148_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6172x6148_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6173x9383_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6173x9383_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6173x9383_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6173x9383_rep2_marker_states.tsv")
+```
+
+Remove one sh.
+
+## 6177x6023_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6177x6023_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6177x6023_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6177x6023_rep2_marker_states.tsv")
+```
+
+Two small haplotypes on Chr 4 set to private.
+
+## 6180x1317_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6180x1317_rep1_marker_states.tsv")
+```
+
+Two sh to remove.
+
+## 6180x1317_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6180x1317_rep2_marker_states.tsv")
+```
+
+Two sh to remove.
+
+## 6184x6025_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6184x6025_rep1_marker_states.tsv")
+```
+
+Set Chr3 centromere to private (12-16mb)
+
+## 6184x6025_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6184x6025_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6189x6220_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6189x6220_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6189x6220_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6189x6220_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 6191x6965_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6191x6965_rep1_marker_states.tsv")
+```
+
+* Here 6965 seems to only partially match the haplotypes from the 1001 genomes data.
+  * I will concatenate the blue haplotypes into contiguous 6965 haplotypes
+* 6191 is known to be segregating.
+  * I will set the following 6161 haplotypes to private:
+    * Chr1: 8-13mb
+    * Chr2: Up to 10mb
+    * Chr4: 8.5-13mb
+* 5 additional sh to remove.
+
+## 6191x6965_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6191x6965_rep2_marker_states.tsv")
+```
+
+* Here 6965 seems to only partially match the haplotypes from the 1001 genomes data.
+  * I will concatenate the blue haplotypes into contiguous 6965 haplotypes
+  * The start of Chr1 is 6191
+  * All of Chr 2 is 6965
+* 6191 is known to be segregating.
+  * I will set the following 6161 haplotypes to private:
+    * Chr1: 9-13mb
+    * Chr3: 9mb onwards.
+    * Chr5: 23-24mb
+
+## 6192x1062_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6192x1062_rep1_marker_states.tsv")
+```
+
+* Chromosome 5 is very sparse.
+  * This is also true for the other replicate, even though the ancestry is probably reversed.
+  * The two parents are from very nearby sites in Skåne - I think they are likely IBS along most of the chromosome.
+  * Set the region from ca 6.5 to 19.5mb to private
+* Removed one sh.
+
+## 6192x1062_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6192x1062_rep2_marker_states.tsv")
+```
+
+* Chromosome 5 is very sparse.
+  * This is also true for the other replicate, even though the ancestry is probably reversed.
+  * The two parents are from very closeby sites in Skåne - I think they are likely IBS along most of the chromosome.
+  * Set the region from ca 6.5 to 19.5mb to private
+* Removed two sh
+
+## 6193x6133_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6193x6133_rep1_marker_states.tsv")
+```
+
+* Removed 3 sh.
+
+## 6193x6133_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6193x6133_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6193x9394_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6193x9394_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6193x9394_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6193x9394_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6194x1061_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6194x1061_rep1_marker_states.tsv")
+```
+
+* These lines are from within a few kilometres of each other in Skåne, and seem to share some long tracts IBS.
+  * In this case I left the tracts as matching their flanking markers.
+
+## 6194x1061_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6194x1061_rep2_marker_states.tsv")
+```
+
+* These lines are from within a few kilometres of each other in Skåne, and seem to share some long tracts IBS.
+  * In this case I left the tracts as matching their flanking markers.
+* I extended Chr1 and 5 to start from position 1.
+* Removed one sh.
+
+## 6197x6127_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6197x6127_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6197x6127_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6197x6127_rep2_marker_states.tsv")
+```
+
+Correct.
+
+##6199x6118_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6199x6118_rep1_marker_states.tsv")
+```
+
+* This was a line with ambiguous parentange; it was meant to be 6198x6118, but 6199 was a better, if not perfect, match.
+* Since we have good resequencing data for this line I think it is more safer to set the 6199 (red) haplotypes to private:
+  * Chr1: from 10.5mb
+  * Chr2: 2mb onwards
+    * In fact, the 6118 haplotype here is also dubious, so I will set the whole chromosome to private.
+  * All of Chr3
+  * Chr4: 1-18mb
+  * Chr5: around 18mb
+
+## 6199x6118_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6199x6118_rep2_marker_states.tsv")
+```
+
+* This was a line with ambiguous parentange; it was meant to be 6198x6118, but 6199 was a better, if not perfect, match.
+* Since we have good resequencing data for this line I think it is more safer to set the 6199 (red) haplotypes to private:
+  * Chr1: Both red haplotypes
+  * Chr2: 12-19mb
+  * Chr3: Up to 22mb
+  * Chr4: 5-9mb; 17 onwards
+  * Chr5: 8-16mb
+* Removed one additional sh.
+  
+## 6201x9399_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6201x9399_rep1_marker_states.tsv")
+```
+
+* Mostly correct, although the 9399 haplotypes in the ibdpainting results seem quite noisy.
+* Removed two sh.
+
+## 6201x9399_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6201x9399_rep2_marker_states.tsv")
+```
+
+* Mostly correct, although the 9399 haplotypes in the ibdpainting results seem quite noisy.
+
+## 6202x9402_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6202x9402_rep1_marker_states.tsv")
+```
+
+Removed one sh
+
+## 6202x9402_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6202x9402_rep2_marker_states.tsv")
+```
+
+Extended the heterzygous bit of Chr3 up to the start of the 9402 haplotype.
+
+## 6203x9321_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6203x9321_rep1_marker_states.tsv")
+```
+
+Removed two sh
+
+## 6203x9321_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6203x9321_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6209x6151_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6209x6151_rep1_marker_states.tsv")
+```
+
+* Concatenated and changed the first two very small haplotypes on Chr2 to private.
+* Concatenated and changed the first three very small haplotypes on Chr4 to private.
+* Removed one sh.
+
+## 6209x6151_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6209x6151_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6210x6134_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6210x6134_rep1_marker_states.tsv")
+```
+
+* Concatenated the two heterozygous haplotypes:
+  * Chr1: 17.5-22mb
+  * Chr5: 15-21mb.
+  * Removed one sh.
+
+## 6210x6134_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6210x6134_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6216x6258_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6216x6258_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6216x6258_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6216x6258_rep2_marker_states.tsv")
+```
+
+* Set Chr4 1.7 to 2.7mb to private.
+
+## 6217x6126_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6217x6126_rep1_marker_states.tsv")
+```
+
+Set the small 6217 haplotype on Chr1 to private.
+
+## 6217x6126_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6217x6126_rep2_marker_states.tsv")
+```
+
+Remove one sh.
+
+## 6218x6043_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6218x6043_rep1_marker_states.tsv")
+```
+
+* These accessions are both from near Härnosand.
+* The SNPs are sparse, but I think it is because they share tracts IBD.
+* In that case only the gappy bits of Chr4 are a problem.
+  * Based on ibdpainting results I set the first two are 6043.
+  * Set the third one to private.
+* 6043 haplotypes are a poor match to the 1001 genomes data - consider getting better data.
+
+## 6218x6043_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6218x6043_rep2_marker_states.tsv")
+```
+
+* These accessions are both from near Härnosand.
+* The SNPs are sparse, but I think it is because they share tracts IBD.
+  * Chr1:
+    * Set f1.5-3.7mb to private.
+    * Set 22-23mb to private.
+  * Chr4: 14-16mb set to private.
+* Removed three sh. 
+
+## 6220x9339_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6220x9339_rep1_marker_states.tsv")
+```
+
+* Extended the first heterozygous haplotype on Chr2 left to meet the 9339 haplotype.
+* Removed one sh.
+
+## 6220x9339_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6220x9339_rep2_marker_states.tsv")
+```
+
+Removed two sh.
+
+## 6221x9455_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6221x9455_rep1_marker_states.tsv")
+```
+
+Removed 2 sh.
+
+## 6231x6039_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6231x6039_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6231x6039_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6231x6039_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6237x6090_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6237x6090_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6237x6090_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6237x6090_rep2_marker_states.tsv")
+```
+
+Three sh to remove.
+
+## 6238x6105_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6238x6105_rep1_marker_states.tsv")
+```
+
+* Set the small blue haplotype on Chr5 to private.
+* 3 sh to remove.
+
+## 6238x6105_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6238x6105_rep2_marker_states.tsv")
+```
+
+* Set Chr4:1.7-2.7mb to private.
+* Removed 5 sh.
+
+## 6240x5831_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6240x5831_rep1_marker_states.tsv")
+```
+
+* Set Chr4:1.7-2.7mb to private.
+
+## 6240x5831_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6240x5831_rep2_marker_states.tsv")
+```
+
+* Set the first red haplotype on Chr1 to private.
+
+## 6241x1552_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6241x1552_rep1_marker_states.tsv")
+```
+
+* These accessions are from nearby on the Swedish High Coast.
+* The sparsity of the data is likely because they share haplotypes identical by descent.
+* Set to private:
+  * Chr1:
+    * 0 to 2mb
+    * 3.5 to 8.5mb
+    * 19 to 26mb
+  * All of Chr2
+  * Chr5: 17-20mb
+
+## 6241x1552_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6241x1552_rep2_marker_states.tsv")
+```
+
+* These accessions are from nearby on the Swedish High Coast.
+* The sparsity of the data is likely because they share haplotypes identical by descent.
+* Set to private:
+  * Chr1:
+    * 0 to 2mb
+    * 3.5 to 8.5mb
+    * 19 to 26mb
+  * All of Chr2
+  * Chr5: 17-20mb
+
+## 6243x6180_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6243x6180_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 6243x6180_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6243x6180_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 6244x6173_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6244x6173_rep1_marker_states.tsv")
+```
+
+* Parents are from the high coast and likely share long tracts identical by descent, hence the sparse informative SNPs.
+* Set to private  
+  * Chr1: 0 to 4mb
+  * Chr2: 0 to 8mb
+* I think Chr4 is likely correct, because the missing SNPs span the centromere, where recombination is low.
+* Removed 2 sh.
+
+## 6244x6173_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6244x6173_rep2_marker_states.tsv")
+```
+
+* Parents are from the high coast and likely share long tracts identical by descent, hence the sparse informative SNPs.
+* Set to private  
+  * Chr1: 0 to 4mb
+  * Chr2: 0 to 8mb
+  * Chr4: 1 to 7mb
+
+## 6252x6202_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6252x6202_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6252x6202_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6252x6202_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 6255x6136_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6255x6136_rep1_marker_states.tsv")
+```
+
+* 6136 seems to have a private haplotype on Chr5.
+  * Set 14 to 19mb to private
+
+## 6255x6136_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6255x6136_rep2_marker_states.tsv")
+```
+
+* Set to private:
+  * Start of Chr1
+  * Chr3 8-12mb
+* Removed one sh.
+
+## 6258x1257_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6258x1257_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6258x1257_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6258x1257_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 6276x9363_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6276x9363_rep1_marker_states.tsv")
+```
+
+Removed 3 sh.
+
+## 6276x9363_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6276x9363_rep2_marker_states.tsv")
+```
+
+Two sh to remove.
+
+## 6284x5830_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6284x5830_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6284x5830_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6284x5830_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6413x8351_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6413x8351_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 6413x8351_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6413x8351_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 6913x6149_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6913x6149_rep1_marker_states.tsv")
+```
+
+Set Chr4 1.7 to 2.7mb to private.
+
+## 6913x6149_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6913x6149_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 6917x6011_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6917x6011_rep1_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish high coast, and likely share long regions identical by descent.
+* Set to private:
+  * Chr2:
+    * 5-9.5mb
+    * 15-18.5mb
+  * All of Chr4.
+
+## 6917x6011_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6917x6011_rep2_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish high coast, and likely share long regions identical by descent.
+* Removed the two small haplotypes at 11mb and 14mb in Chr1.
+* Set the small blue haplotypes at the start of Chr3 and Chr4 to private
+
+
+## 6918x9323_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6918x9323_rep1_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish high coast, and likely share long regions identical by descent.
+
+## 6918x9323_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6918x9323_rep2_marker_states.tsv")
+```
+
+* These accessions are neighbours from the Swedish high coast, and likely share long regions identical by descent.
+* Set Chr4 10-mb onwards to private.
+* Removed one additional sh.
+
+## 6965x9412_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6965x9412_rep1_marker_states.tsv")
+```
+
+* The 6965 haplotypes here (and for the replicate line) do not match the data for the 1001 genomes project very well.
+* However, breakpoints seem to be generally in the right places.
+  * Exception: there are two small haplotypes at the start of Chr2; I set these to private.
+  * Also removed the short red haplotype Chr2 13mb.
+* I concatenated the remaining red haplotypes.
+
+## 6965x9412_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6965x9412_rep2_marker_states.tsv")
+```
+
+* The 6965 haplotypes here (and for the replicate line) do not match the data for the 1001 genomes project very well.
+* However, breakpoints seem to be generally in the right places.
+  * I concatenated the remaining red haplotypes.
+
+## 6974x6102_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6974x6102_rep1_marker_states.tsv")
+```
+
+* ibdpainting results indicated that this line had been mislabelled as 6974x6198.
+  * The result here is after correcting this.
+* Removed four sh.
+
+## 6974x6102_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6974x6102_rep2_marker_states.tsv")
+```
+
+* Removed 2 sh.
+
+## 6974x6198_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6974x6198_rep1_marker_states.tsv")
+```
+
+* The 6198 parentage of this line was ambiugous; 6199 was a better parent, but it is still also likely segregating.
+  * This should probably be labelled 6198.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible.
+  * Chr1: up to 13mb
+  * Chr3: 0.7 to 12mb
+  * Chr4: 6mb onwards
+  * Chr5:
+    * 1 to 11mb
+    * 15mb onwards
+* Removed one additional sh.
+
+## 6974x6199_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/6974x6199_rep2_marker_states.tsv")
+```
+
+* The 6198 parentage of this line was ambiugous; 6199 was a better parent, but it is still also likely segregating.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible:
+  * Chr1:
+    * Up to 5mb
+    * 6-11mb
+    * 16-17mb
+    * 23mb onwards
+  * Chr3:
+    * First small red haplotype.
+    * 7-17mb
+  * Chr5: Up to 23mb.
+* Removed additional sh.
+
+## 7517x6284_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/7517x6284_rep1_marker_states.tsv")
+```
+
+* 7517 haplotypes do not match the 1001-genomes data very well.
+  * This is also true for the other replicate. 
+  * It is likely that the errors are in the 1001-genomes data.
+  * For now I will use the published data.
+* Removed seven sh.
+
+## 7517x6284_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/7517x6284_rep2_marker_states.tsv")
+```
+
+* 7517 haplotypes do not match the 1001-genomes data very well.
+  * This is also true for the other replicate. 
+  * It is likely that the errors are in the 1001-genomes data.
+  * For now I will use the published data.
+* Removed eight sh.
+
+## 7519x6111_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/7519x6111_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 7519x6111_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/7519x6111_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8222x6243_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8222x6243_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 8222x6243_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8222x6243_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 8227x6216_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8227x6216_rep1_marker_states.tsv")
+```
+
+Removed three sh.
+
+## 8227x6216_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8227x6216_rep2_marker_states.tsv")
+```
+
+* These lines are from the High Coast and likely share haplotypes identical by descent.
+* Set Chr2: 2 to 7.5mb to private
+* Removed one  sh.
+
+## 8230x6195_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8230x6195_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 8231x8386_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8231x8386_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 8231x8386_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8231x8386_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 8237x6194_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8237x6194_rep1_marker_states.tsv")
+```
+
+Removed 2 sh
+
+## 8237x6194_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8237x6194_rep2_marker_states.tsv")
+```
+
+Removed on sh.
+
+## 8240x6036_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8240x6036_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 8240x6036_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8240x6036_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8242x6171_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8242x6171_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 8242x6171_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8242x6171_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8247x6154_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8247x6154_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 8247x6154_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8247x6154_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8256x8376_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8256x8376_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 8256x8376_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8256x8376_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8258x6115_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8258x6115_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 8258x6115_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8258x6115_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8259x6217_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8259x6217_rep1_marker_states.tsv")
+```
+
+Remove one sh.
+
+## 8259x6217_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8259x6217_rep2_marker_states.tsv")
+```
+
+Extended the heterozygous haplotype on Chr2 to include the two small blue haplotypes.
+
+## 8283x9471_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8283x9471_rep1_marker_states.tsv")
+```
+
+* This cross was flagged as incorrect.
+* Parentage is likely 8283x179.
+
+## 8283x9471_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8283x9471_rep2_marker_states.tsv")
+```
+
+* This cross was flagged as incorrect.
+* Parentage is likely 8283x179.
+
+## 8307x9481_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8307x9481_rep1_marker_states.tsv")
+```
+
+* One sh.
+
+## 8307x9481_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8307x9481_rep2_marker_states.tsv")
+```
+
+* Three sh.
+
+## 8334x8231_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8334x8231_rep1_marker_states.tsv")
+```
+
+Two sh.
+
+## 8334x8231_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8334x8231_rep2_marker_states.tsv")
+```
+
+Eight sh.
+
+## 8351x6150_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8351x6150_rep1_marker_states.tsv")
+```
+
+Correct
+
+## 8351x6150_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8351x6150_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 8369x6132_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8369x6132_rep1_marker_states.tsv")
+```
+
+* These lines are both from Skåne and likely share haplotypes.
+* Set to private:
+  * Chr3: up 5 mb.
+  * Chr 4: 11mb onwards
+
+## 8369x6132_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8369x6132_rep2_marker_states.tsv")
+```
+
+* These lines are both from Skåne and likely share haplotypes.
+* Chr4 2.5-6 set to private.
+* Removed 1 sh.
+
+## 8376x6201_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8376x6201_rep1_marker_states.tsv")
+```
+
+* Removed one sh.
+
+## 8376x6201_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8376x6201_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8386x6241_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8386x6241_rep1_marker_states.tsv")
+```
+
+* Removed two sh.
+
+## 8386x6241_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8386x6241_rep2_marker_states.tsv")
+```
+
+* Set the blue haplotype around Chr3: 10mb to private.
+* Removed one sh.
+
+## 8387x6238_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8387x6238_rep1_marker_states.tsv")
+```
+
+* Removed four sh.
+
+## 8387x6238_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8387x6238_rep2_marker_states.tsv")
+```
+
+* Removed two sh.
+
+## 8422x6209_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8422x6209_rep1_marker_states.tsv")
+```
+
+* Removed two sh.
+
+## 8422x6209_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8422x6209_rep2_marker_states.tsv")
+```
+
+* Removed one sh.
+
+## 8423x8240_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8423x8240_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 8423x8240_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8423x8240_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 8426x6193_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8426x6193_rep1_marker_states.tsv")
+```
+
+* Four sh to remove.
+
+## 8426x6193_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/8426x6193_rep2_marker_states.tsv")
+```
+
+* These accessions are from Skåne and likely share tracts identical by descent (although they are not as close as other pairs of lines in this collection).
+* Set to private:
+  * Final tip of Chr3.
+  * Chr5:
+    * 10 to 13.5mb
+    * 18.3 to 23mb
+
+## 9057x9382_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9057x9382_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9057x9382_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9057x9382_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9058x6112_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9058x6112_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9058x6112_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9058x6112_rep2_marker_states.tsv")
+```
+
+* Set Chr3 5 to 7mb to private.
+
+## 9321x6189_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9321x6189_rep1_marker_states.tsv")
+```
+
+* Two sh to remove.
+
+## 9321x6189_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9321x6189_rep2_marker_states.tsv")
+```
+
+* One sh to remove.
+
+## 9323x8369_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9323x8369_rep1_marker_states.tsv")
+```
+
+* Set Chr4 1.7 to 2.7 to private.
+
+## 9323x8369_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9323x8369_rep2_marker_states.tsv")
+```
+
+* Two sh.
+
+## 9332x6413_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9332x6413_rep1_marker_states.tsv")
+```
+
+* Set Chr4 1.7 to 2.7 to private.
+* Three additional sh.
+
+## 9332x6413_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9332x6413_rep2_marker_states.tsv")
+```
+
+* Chr1 0 to 3mb set to private.
+* Removed 4 sh.
+
+## 9336x6220_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9336x6220_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9336x6220_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9336x6220_rep2_marker_states.tsv")
+```
+
+Removed 3 sh.
+
+## 9343x8259_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9343x8259_rep1_marker_states.tsv")
+```
+
+Removed 1 sh.
+
+## 9343x8259_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9343x8259_rep2_marker_states.tsv")
+```
+
+* Set to private:
+  * Chr1 26 to 26.6mb
+  *Second red haplotype on Chr4.
+
+## 9352x8422_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9352x8422_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9352x8422_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9352x8422_rep2_marker_states.tsv")
+```
+
+Removed two sh.
+
+## 9353x6109_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9353x6109_rep1_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 9353x6109_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9353x6109_rep2_marker_states.tsv")
+```
+
+* Removed 4 sh.
+
+## 9356x6094_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9356x6094_rep1_marker_states.tsv")
+```
+
+* 9356 has private haplotypes across essentially the whole genome.
+  * I set them all to private, except the two small ones on Chr4.
+
+## 9356x6094_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9356x6094_rep2_marker_states.tsv")
+```
+
+* 9356 has private haplotypes across essentially the whole genome.
+* I set them all to private:
+  * Chr1:
+    * 0 to 7.5mb
+    * 17.3 to 16.1 mb
+  * Chr2: 0 to 16mb
+  * Chr3: 8.5 to 23.4mb
+  * Chr5: 22.5 onwards.
+* Removed additional sh.
+
+## 9363x6070_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9363x6070_rep1_marker_states.tsv")
+```
+
+* These lines are very close geographical neighbours in the High Coast, and share many tracts identical by descent.
+* Set to private:
+  * Chr1: 0 to 7.8mb
+  * Chr2: 0.6 to 15mb
+* One additional sh removed.
+
+## 9369x9434_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9369x9434_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9369x9434_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9369x9434_rep2_marker_states.tsv")
+```
+
+* Set the small red haplotype at 7mb on Chr4 to private.
+
+## 9371x6021_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9371x6021_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9371x6021_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9371x6021_rep2_marker_states.tsv")
+```
+
+Removed two sh.
+
+## 9380x1063_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9380x1063_rep1_marker_states.tsv")
+```
+
+* This line is of incorrect parentage.
+* This will not be processed further.
+
+## 9380x1063_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9380x1063_rep2_marker_states.tsv")
+```
+
+* Two sh.
+
+## 9381x6198_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9381x6198_rep1_marker_states.tsv")
+```
+
+* The 6198 parentage of this line was ambiugous; 6199 was a better parent, but it is still also likely segregating.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible:
+  * Chr1:
+    * 0-1.2mb
+    * 5.3-12mb
+    * 18-26.6mb
+    * 29.7 onwards
+  * Chr3:
+    * 0 to 19.2mb
+    * 8.1 to 23.4mb
+  * Chr4:
+    * 8.4 to 10.2mb
+    * 11.7 onwards
+  * Chr5:
+    * 0 to 7.3mb
+    *14.9mb onwards
+* This was repeated as 9381x6199_rep1.
+
+## 9381x6198_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9381x6198_rep2_marker_states.tsv")
+```
+
+* The 6198 parentage of this line was ambiugous; 6199 was a better parent, but it is still also likely segregating.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible:
+  * Chr1: 12.7 to 25.1mb
+  * Chr3: 10.6mb onwards
+  * Chr4:
+    * 0 to 6.4mb
+    * 13.8 to 18.5mb
+  * Chr5:
+    * 0 to 3.2mb
+    * 7mb onwards
+* This was repeated as 9381x6199_rep2.
+
+## 9381x6199_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9381x6199_rep1_marker_states.tsv")
+```
+
+* This line was renamed from 9381x6198, but the parentage is still somewhat ambiguous.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible:
+  * Chr1:
+    * 0-1.2mb
+    * 5.3-12mb
+    * 18-26.6mb
+    * 29.7 onwards
+  * Chr2: 9.2 to 15mb
+  * Chr3:
+    * 0 to 19.3mb
+    * 8.1 to 23.4mb
+  * Chr4:
+    * 8.4 to 10.2mb
+    * 11.7 onwards
+  * Chr5:
+    * 0 to 7.3mb
+    *14.9mb onwards
+
+## 9381x6199_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9381x6199_rep2_marker_states.tsv")
+```
+
+* This line was renamed from 9381x6198, but the parentage is still somewhat ambiguous.
+* For that reason, I will use the private haplotypes for 6198 regions wherever possible:
+  * Chr1: 12.7 to 25.1mb
+  * Chr3: 10.7mb onwards
+  * Chr4:
+    * 0 to 5.8mb
+    * 13.8 to 18mb
+  * Chr5:
+    * 0 to 3.2mb
+    * 7mb onwards
+    
+## 9382x6035_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9382x6035_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9382x6035_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9382x6035_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9386x6171_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9386x6171_rep1_marker_states.tsv")
+```
+
+* These lines likely share long tracts identical by descent.
+* Set to private:
+  * Chr2: 1.9 to 7.9mb
+  * Chr4: 0 to 6.3mb
+* Removed one sh.
+
+## 9386x6171_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9386x6171_rep2_marker_states.tsv")
+```
+
+* These lines likely share long tracts identical by descent.
+* Set to private:
+  * Chr4:
+  
+## 9388x9057_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9388x9057_rep1_marker_states.tsv")
+```
+
+* 9388 has a large private haplotype on Chr5.
+  * 10.4 to 19mb set to private
+* Three sh to remove.
+
+## 9388x9057_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9388x9057_rep2_marker_states.tsv")
+```
+
+* 9388 has a large private haplotype on Chr5.
+  * 7 to 19mb set to private
+* Seven sh to remove.
+
+## 9390x8283_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9390x8283_rep1_marker_states.tsv")
+```
+
+One sh.
+
+## 9390x8283_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9390x8283_rep2_marker_states.tsv")
+```
+
+Set Chr4 1.6 to 2.8 to private
+
+## 9391x5867_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9391x5867_rep1_marker_states.tsv")
+```
+
+Removed two sh.
+
+## 9391x5867_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9391x5867_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9391x9353_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9391x9353_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9391x9353_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9391x9353_rep2_marker_states.tsv")
+```
+
+* Set the gap in Chr4 (7.1 to 8.4mb) to private.
+* removed 5 sh.
+
+## 9392x6073_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9392x6073_rep1_marker_states.tsv")
+```
+
+* Set the small red haplotype on Chr1 to private
+
+## 9392x6073_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9392x6073_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9395x9454_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9395x9454_rep1_marker_states.tsv")
+```
+
+* Private haplotype Chr2 6.5 to 8.5mb
+
+## 9395x9454_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9395x9454_rep2_marker_states.tsv")
+```
+
+* Private haplotype Chr2 6.5 to 8.5mb
+* One sh to remove.
+
+## 9399x6097_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9399x6097_rep1_marker_states.tsv")
+```
+
+* This line was identified as being of incorrect parentage.
+
+## 9399x6097_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9399x6097_rep2_marker_states.tsv")
+```
+
+* This line was identified as being of incorrect parentage.
+
+## 9402x6169_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9402x6169_rep1_marker_states.tsv")
+```
+
+* One sh.
+
+## 9402x6169_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9402x6169_rep2_marker_states.tsv")
+```
+
+* Set the red haplotype at Chr3:11mb to private.
+* Removed 3 sh. 
+
+## 9404x9390_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9404x9390_rep1_marker_states.tsv")
+```
+
+* 9404 has two private haplotypes on chr1.
+* Set to private:
+  * 16 to 17.5mb.
+
+## 9404x9390_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9404x9390_rep2_marker_states.tsv")
+```
+
+* 9404 has two private haplotypes on chr1.
+* Set to private:
+  * 6.5 to 8.5mb
+  * 16 to 17.5mb.
+* Removed 3 addtional sh.
+
+## 9405x6100_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9405x6100_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9405x6100_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9405x6100_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9407x6040_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9407x6040_rep1_marker_states.tsv")
+```
+
+* These are neighbours from Skåne and likely share tracts identical by descent.
+* Set to private:
+  * Chr1 up to 26.3mb
+  * Chr3 from 11mb onwards
+  * Chr5: up to 7.1mb
+
+## 9407x6040_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9407x6040_rep2_marker_states.tsv")
+```
+
+* These are neighbours from Skåne and likely share tracts identical by descent.
+* Set to private:
+  * Chr1: up to 26.3mb
+  * Chr3 from 11mb onwards
+  * Chr5: up to 7.1mb
+* Removed one sh.
+
+## 9408x9352_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9408x9352_rep1_marker_states.tsv")
+```
+
+Four sh to remove.
+
+## 9408x9352_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9408x9352_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9409x6104_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9409x6104_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9409x6104_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9409x6104_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9412x6024_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9412x6024_rep1_marker_states.tsv")
+```
+
+One sh.
+
+## 9412x6024_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9412x6024_rep2_marker_states.tsv")
+```
+
+Two sh.
+
+## 9413x8423_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9413x8423_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9413x8423_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9413x8423_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9416x6086_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9416x6086_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9416x6086_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9416x6086_rep2_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9421x8256_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9421x8256_rep1_marker_states.tsv")
+```
+
+* Two sh to remove.
+
+## 9421x8256_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9421x8256_rep2_marker_states.tsv")
+```
+
+* Two sh to remove.
+
+## 9427x8387_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9427x8387_rep1_marker_states.tsv")
+```
+
+Five sh to remove.
+
+## 9427x8387_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9427x8387_rep2_marker_states.tsv")
+```
+
+One sh.
+
+## 9433x6030_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9433x6030_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9433x6030_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9433x6030_rep2_marker_states.tsv")
+```
+
+Correct
+
+## 9434x6177_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9434x6177_rep1_marker_states.tsv")
+```
+
+One sh to remove.
+
+## 9434x6177_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9434x6177_rep2_marker_states.tsv")
+```
+
+* Set the small blue haplotype around 18mb on Chr2 to private
+* Set the end of Chr5 to 6177.
+
+## 9437x6197_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9437x6197_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9437x6197_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9437x6197_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9450x9356_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9450x9356_rep1_marker_states.tsv")
+```
+
+* 9356 is segregating.
+* Set to private:
+  * Chr1: 6 to 8.2mb
+  * Chr2: 6.2 onwards
+  * All of Chr3
+  * Chr4: 14.3 onwards
+* Removed two additional sh.
+
+## 9450x9356_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9450x9356_rep2_marker_states.tsv")
+```
+
+* 9356 is segregating.
+* Set to private:
+  * Chr2: 2.5 to 9mb
+  * Chr3: up to 3mb
+  * All of Chr4
+  * Chr5: 8 to 15mb
+* removed one sh.
+
+## 9451x9437_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9451x9437_rep1_marker_states.tsv")
+```
+
+* 9451 is segregating.
+* Set to private:
+  * Chr2: up to 7mb
+  * Chr4: 8.9mb onwards.
+  * Chr5: 9.1 onwards.
+* One sh removed
+
+## 9451x9437_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9451x9437_rep2_marker_states.tsv")
+```
+
+* 9451 is segregating.
+* Set to private:
+  * Chr1: 16.3mb onwards
+  * Chr2: 9.9 to 16.2mb
+  * Chr3: 2.4 to 18.5mb
+  * Chr4:
+    * 1.6 to 7.6
+    * 18mb onwards
+  * Chr5: 0 to 16.9mb
+  
+## 9452x6114_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9452x6114_rep1_marker_states.tsv")
+```
+
+One sh.
+
+## 9452x6114_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9452x6114_rep2_marker_states.tsv")
+```
+
+Two sh.
+
+## 9453x6106_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9453x6106_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9453x6106_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9453x6106_rep2_marker_states.tsv")
+```
+
+* Set Chr4 10.2 to 2.8 mb to private.
+
+## 9454x1363_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9454x1363_rep1_marker_states.tsv")
+```
+
+* The 1363 haplotypes look noisy
+  * However, this is not true for the other replicate.
+  * I think the issue is with this sample, not the parental genotype data, so I will use the latter rather than the private data:
+  * All of Chr1
+  * Chr2: 15.6 onwards
+  * All of Chr3
+* Set Chr2 1.4 to 1.9mb to private
+* Removed three sh.
+
+## 9454x1363_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9454x1363_rep2_marker_states.tsv")
+```
+
+* Set to private:
+  * Chr1: Small haplotype around 26mb
+  * Chr2: 18.5mb onwards
+  * Chr4: Small haplotype around 2.6mb
+* Removed one sh.
+
+## 9455x9371_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9455x9371_rep1_marker_states.tsv")
+```
+
+* Set the small red haplotype around 0.5mb to private.
+* Extended the heterozygous haplotype from 7.2 to 9.9mb
+* Removed five additional sh.
+
+## 9455x9371_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9455x9371_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 9470x7002_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9470x7002_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9471x9450_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9471x9450_rep1_marker_states.tsv")
+```
+
+Two sh.
+
+## 9471x9450_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9471x9450_rep2_marker_states.tsv")
+```
+
+Correct.
+
+## 9476x991_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9476x991_rep1_marker_states.tsv")
+```
+
+* Set the small red haplotype around Chr5 6mb to private.
+
+## 9476x991_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9476x991_rep2_marker_states.tsv")
+```
+
+* Set the small blue haplotype around Chr3:2mb to private.
+* Set the rDNA cluster region on Chr4 (1.3 to 2.8 mb) to private.
+* One sh.
+
+## 9481x9399_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9481x9399_rep1_marker_states.tsv")
+```
+
+Correct.
+
+## 9481x9399_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/9481x9399_rep2_marker_states.tsv")
+```
+
+Removed one sh.
+
+## 991x6210_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/991x6210_rep1_marker_states.tsv")
+```
+
+* Set the final red haplotype on Chr5 to private.
+
+## 991x6210_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/991x6210_rep2_marker_states.tsv")
+```
+
+* Set the first red haplotype on Chr3 to private.
+* Set Chr4 1.8 to 2.8 to private.
+
+## 992x9332_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/992x9332_rep1_marker_states.tsv")
+```
+
+* 992 has long stretches of heterozygosity along Chr1 and 5 in exactly the places where the red haplotypes look dodgy here.
+* Set to private:
+  * Chr1: 0 to 17.8mb
+  * Chr4:
+    * 1.6 to 2.8mb (this is the rDNA cluster)
+    * 6.4 to 7.8mb
+  * Chr 5:
+    * 0 to 1.2mb
+    * 8.1 to 16.9mb
+* Two additional sh.
+
+## 992x9332_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/992x9332_rep2_marker_states.tsv")
+```
+
+* 992 has long stretches of heterozygosity along Chr1 and 5, but serendipitously this line happens to be homozygous for 9332 at most of these.
+* Set to private:
+  * Chr1: 9.5 to 12.5mb
+  * Chr5:
+    * 0 to 3mb
+    * 15.4 to 16.9mb
+
+## 997x8307_rep1
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/997x8307_rep1_marker_states.tsv")
+```
+
+Two sh.
+
+## 997x8307_rep2
+
+```{r}
+plot_hmm("03_processing/09_impute_haplotypes/output/07_impute_haplotypes/997x8307_rep2_marker_states.tsv")
+```
+
+Correct.

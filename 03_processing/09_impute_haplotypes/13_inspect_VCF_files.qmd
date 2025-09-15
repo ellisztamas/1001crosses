@@ -1,0 +1,121 @@
+---
+title: "Quality control on imputed SNPs in the F8s"
+author: "Tom Ellis"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+# 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library("tidyverse"))
+```
+
+```{r}
+
+parents_frq <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.frq",
+  show_col_types = FALSE,
+  skip = 1,
+  col_names = c("chr", "pos", "nalleles", "nchr", "p", "q")
+  )
+
+progeny_frq <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.frq",
+  show_col_types = FALSE,
+  skip = 1,
+  col_names = c("chr", "pos", "nalleles", "nchr", "p", "q")
+  )
+
+
+```
+
+```{r}
+progeny_frq %>% 
+  ggplot(aes( x = p)) +
+  geom_histogram()
+
+parents_frq %>% 
+  ggplot(aes( x = p)) +
+  geom_histogram()
+
+
+join_freq <- inner_join(
+  parents_frq, progeny_frq,
+  by = c("chr", "pos"),
+  suffix = c("_parents", "_progeny")) 
+
+join_freq %>%
+  mutate(
+    p_diff = p_parents - p_progeny
+  ) %>% 
+  filter(p_diff > 0.1) %>% 
+  ggplot(aes(x = p_parents, y = p_diff)) +
+  geom_point()
+
+join_freq %>%
+  ggplot(aes(x = p_parents, y = p_progeny)) +
+  geom_point()
+
+  
+```
+
+```{r}
+progeny_imiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parents",
+  show_col_types = FALSE
+  )
+
+progeny_imiss %>% 
+  ggplot(aes(F_MISS)) +
+  geom_histogram()
+```
+
+
+```{r}
+progeny_lmiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.lmiss",
+  show_col_types = FALSE
+  )
+
+parents_lmiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.lmiss",
+  show_col_types = FALSE
+  )
+
+progeny_lmiss %>% 
+  ggplot(aes(F_MISS)) +
+  geom_histogram()
+
+inner_join(
+  progeny_frq, progeny_lmiss, by=c("chr"="CHR", "pos"="POS")
+) %>% 
+  ggplot(aes(x=F_MISS, y = p)) +
+  geom_point()
+
+
+```
+
+```{r}
+progeny_imiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.imiss",
+  show_col_types = FALSE
+  )
+
+progeny_imiss %>% 
+  ggplot(aes(F_MISS)) +
+  geom_histogram()
+```
+
+```{r}
+progeny_idepth <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.idepth",
+  show_col_types = FALSE
+  )
+
+progeny_idepth %>% 
+  ggplot(aes(MEAN_DEPTH)) +
+  geom_histogram()
+```
+
