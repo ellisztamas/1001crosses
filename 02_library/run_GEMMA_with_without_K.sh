@@ -126,6 +126,7 @@ plink2 \
   --pheno $pheno_file \
   --make-bed \
   --set-all-var-ids '@_#' \
+  --max-alleles 2 \
   --no-input-missing-phenotype \
   --keep $pheno_file \
   --out $plink_output
