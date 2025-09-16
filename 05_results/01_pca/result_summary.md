@@ -19,15 +19,14 @@ How has the structure changed between the parents and F8s?
 - Parents are stratified along two axes.
     - PC1 is largely correlated with latitude.
     - This is not perfect, check metadata
-- F8s are more homogeneous, except for 6 samples that have whacky parents.
-- Flowering time correlated with a bunch of PCs.
+- F8s are are dispersed along those axes, and between.
+- Flowering time somewhat correlated with a bunch of PCs.
+- Seed size shows substantial correlation with both PC1 and PC2
+  - Even in the F8s!
+  - Suggests seed size is highly polygenic?
 
 ## Caveats
 
-- PC1 should probably be more strongly correlated tbh
-- Offspring of parents from the RegMap panel make a cluster of their own
-
 ## Follow-up
 
-- Check the GPS metadata.
 - Resequence 1435, 6199 and 5835.

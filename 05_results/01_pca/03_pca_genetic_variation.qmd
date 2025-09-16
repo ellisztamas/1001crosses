@@ -6,6 +6,7 @@ format:
   html:
     toc: true
     html-math-method: katex
+    self-contained: true
 ---
 
 ```{r setup, include=FALSE}
@@ -22,12 +23,12 @@ library("qqman")
 # List of file paths giving eigenvectors
 eigenvec_files <- list(
   parents = "05_results/01_pca/output/parental_lines.eigenvec",
-  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenvec"
+  progeny = "05_results/01_pca/output/F8_imputed.eigenvec"
 )
 # List of file paths giving eigen values
 eigenval_files <- list(
   parents = "05_results/01_pca/output/parental_lines.eigenval",
-  progeny = "05_results/01_pca/output/F8_phased_imputed.eigenval"
+  progeny = "05_results/01_pca/output/F8_imputed.eigenval"
 )
 
 # Import PCA data
@@ -116,11 +117,34 @@ eigenvecs$progeny <- eigenvecs$progeny %>%
 
 ```
 
+```{r seed-size-data}
+# BLUPs
+seed_size <- list(
+  progeny = read_tsv(
+    "03_processing/06_process_phenotypes/output/seed_size_blups_F9_combined.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'seed_size')
+  ),
+  
+  parents = read_tsv(
+    "03_processing/06_process_phenotypes/output/seed_size_blups_parents.tsv",
+    col_types = 'fcd',
+    col_names = c('intercept', 'FID', 'seed_size')
+  )
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(seed_size$parents, by = "FID")
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  left_join(seed_size$progeny, by = "FID")
+
+```
+
 This document investigates principle components of genetic variation in 219 parental and 501 (imputed) F8 datasets.
 
 ## Basic PCA
 
-Looking first at the variance explained by each PC, eigenvectors for the parents start high and decay within 20 PCs. Eigenvectors for the F8s start lower and decay more smoothly.
+Looking first at the variance explained by each PC, eigenvectors for the parents start high and decay within 20 PCs. Eigenvectors for the F8s start lower but are otherwise similar.
 
 ```{r eigenvalues}
 rbind(
@@ -140,7 +164,9 @@ rbind(
   facet_grid(~ dataset)
 ```
 
-A first comparison shows that structure in the parents is L-shaped, roughly corresponding to PCs 1 and 2. In the progeny, most of PC2 is collapsed, and most samples form one cluster, but is a second cluster with 9 samples with high PC2.
+A first comparison shows that structure in the parents is L-shaped, roughly corresponding to PCs 1 and 2.
+In the F8s there are again two axis, with some lines in between.
+That is consistent with mating within and between the two axes.
 
 ```{r basic-pca}
 ggarrange(
@@ -149,17 +175,17 @@ ggarrange(
     geom_point() +
     labs(
       x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
-      y = paste0("PC2 (", eigenvals$parents$eigenval[3], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
       title = "Parents"
     ) +
     theme_bw(),
   
   eigenvecs$progeny %>%
-    ggplot(aes(x=PC1, y = PC2)) +
+    ggplot(aes(x=PC1, y = -PC2)) +
     geom_point() +
     labs(
       x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
-      y = paste0("PC2 (", eigenvals$progeny$eigenval[3], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
       title = "Progeny"
     ) +
     theme_bw(),
@@ -222,22 +248,6 @@ eigenvecs$parents %>%
     x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
     y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
     title = "Parents of the cluster of 9"
-  ) +
-  theme_bw()
-```
-
-Structure is much more isotropic if you remove the cluster of nine.
-
-```{r}
-eigenvecs$progeny %>%
-  filter(PC2 < 0.1) %>% 
-  
-  ggplot(aes(x=PC1, y = PC2)) +
-  geom_point() +
-  labs(
-    x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
-    y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
-    title = "Progeny, excluded PC2 cluster"
   ) +
   theme_bw()
 ```
@@ -340,6 +350,37 @@ map_data('world') %>%
 
 ```
 
+The following plot shows the scatter plot of the main PCs against latitude for the parental lines.
+First, you can see the three lines from central Europe at low latitude.
+Ignoring those, we can see that PC1 is basically driven by the difference between Skåne and the high coast.
+There is no meaningful correlation between latitude and PC2.
+
+```{r}
+
+ggarrange(
+eigenvecs$parents %>% 
+  ggplot(aes(x=latitude, y = PC1)) +
+  geom_point() +
+  labs(
+    x = "Latitude",
+    y = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    title = "PC1"
+  ) +
+  theme_bw(),
+
+eigenvecs$parents %>% 
+  ggplot(aes(x=latitude, y = PC2)) +
+  geom_point() +
+  labs(
+    x = "Latitude",
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+    title = "PC2"
+  ) +
+  theme_bw(),
+ncol=2
+)
+```
+
 ### Flowering time
 
 There is no obvious correlation between flowering time at 12°C and PCs 1 and 2.
@@ -358,7 +399,7 @@ ggarrange(
     theme_bw(),
   
   eigenvecs$progeny %>% 
-    ggplot(aes(x=PC1, y = PC2, colour = days_to_flower)) +
+    ggplot(aes(x=PC1, y = -PC2, colour = days_to_flower)) +
     geom_point() +
     labs(
       x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
@@ -372,7 +413,7 @@ ggarrange(
 
 ```
 
-In fact, if we calculate Spearman-rank correlations between flowering time BLUPs and each PC we see there are some quite substantial correlations, especially for the parents, and especially PCs 1, 2, 3, 4,6 and 14.
+Plotting Spearman-rank correlations shows that there are some modest correlations.
 
 ```{r}
 
@@ -446,7 +487,7 @@ ggarrange(
 
 ```
 
-Plotting correlation coefficients also shows that correlations are generally weaker, with notable exceptions of PC9 for the parents and PC1 for the progeny.
+Plotting correlation coefficients also shows that correlations are generally weaker.
 
 ```{r}
 
@@ -489,11 +530,77 @@ rs_cor %>%
 
 ```
 
-You can see the correlation if you squint a bit.
+### Seed size
+
+It appears that seed size is correlated with PC1 (and hence latitude) in the parents, but not the F8s.
 
 ```{r}
-plot(
-  eigenvecs$progeny$PC1, eigenvecs$progeny$rosette_size
+ggarrange(
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = seed_size)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+      title = "Parents"
+    ) +
+    theme_bw(),
+  
+  eigenvecs$progeny %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = seed_size)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$progeny$eigenval[2], "%)"),
+      title = "Progeny"
+    ) +
+    theme_bw(),
+  
+  ncol=1, nrow=2
 )
+
 ```
+
+The correlation coefficients reveal that the first two PCs are actually surprising correlated in *both* the parents and F8s.
+This would be consistent with seed size being highly polygenic, such that seed size is proportional to how much Northern/Southern Swedish genome you have.
+
+```{r}
+
+ss_cor <- tibble(
+  PC = 1:18,
+  parents = rep(NA, 18),
+  progeny = rep(NA, 18)
+)
+
+for(i in 3:20){
+  ss_cor$parents[i-2] <- cor(
+    eigenvecs$parents$seed_size,
+    eigenvecs$parents[,i],
+    method = 's', use = 'p'
+  )
+  
+  ss_cor$progeny[i-2] <- cor(
+    eigenvecs$progeny$seed_size,
+    eigenvecs$progeny[,i],
+    method = 's', use = 'p'
+  )
+}
+
+
+ss_cor %>% 
+  pivot_longer(parents:progeny, values_to = "correlation") %>% 
+  ggplot(aes(x=PC, y=correlation)) +
+  geom_point() +
+  labs(
+    x = "Principle component",
+    y = "Correlation with seed size"
+  ) +
+  facet_grid(~name)
+
+
+```
+
+
+
+
 
