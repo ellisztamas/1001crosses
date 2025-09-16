@@ -10,15 +10,14 @@ library(tidyverse)
 
 ld_files <- list(
   parents="05_results/02_ld_decay/output/parental_lines_D.ld.gz",
-  progeny='05_results/02_ld_decay/output/F8_phased_imputed_D.ld.gz',
-  unphased='05_results/02_ld_decay/output/F8_snp_matrix_D.ld.gz'
+  progeny='05_results/02_ld_decay/output/F8_imputed_D.ld.gz'
 )
 
 
 
 # Window size to average over
 bin_size = 100
-ld_bins <- vector('list', 3)
+ld_bins <- vector('list', length(ld_files))
 names(ld_bins) <- names(ld_files)
 for(name in names(ld_files)){
   # Get mean r2 within 100bp windows.
@@ -39,8 +38,7 @@ for(name in names(ld_files)){
     )
 }
 
-
-
+# Plot the decay in (local) LD at increasing distances
 do.call(what = 'rbind', ld_bins) %>%
   ggplot(aes(x=distance/1000, y = meanD, colour=Generation)) +
   geom_point(size=0.5) +
@@ -50,11 +48,19 @@ do.call(what = 'rbind', ld_bins) %>%
   ) +
   theme_bw()
 
+ggsave(
+  "05_results/02_ld_decay/output/short_range_LD.png",
+  device = "png",
+  units = "in",
+  height = 6, width =8
+)
+
+
 
 do.call(what = 'rbind', ld_bins) %>%
   pivot_wider(names_from = Generation, values_from = meanD) %>%
   mutate(
-    rfrac_3 = (distance*1e-6 * 3) / 10,
+    rfrac_3 = (distance*1e-5 * 3) / 10,
     expD_3  = (1-rfrac_3)*(1-(1*rfrac_3))^7 * parents
   ) %>%
   select(-rfrac_3) %>%
@@ -69,9 +75,3 @@ do.call(what = 'rbind', ld_bins) %>%
   theme_bw()
 
 
-# ggsave(
-#   "05_results/02_ld_decay/output/short_range_LD.png",
-#   device = "png",
-#   units = "in",
-#   height = 6, width =8
-# )

@@ -11,7 +11,7 @@
 #SBATCH --mem=10GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
-#SBATCH --array=2
+#SBATCH --array=1
 
 date 
 
@@ -22,11 +22,12 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # VCF files for parents and F8s
-parents=03_processing/05_imputation/output/parental_lines.vcf.gz
-progeny=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
+parents=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
+progeny=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
 unphased=03_processing/02_original_sample_sheet/output/F8_snp_matrix.vcf.gz
+strict=03_processing/08_strict_imputation/output/F8_imputed_on_genes_beagle.vcf.gz
 # Make a Bash array of the three VCF files
-vcf_files=($parents $progeny $unphased)
+vcf_files=($parents $progeny $unphased $strict)
 # File to use in this job
 infile=${vcf_files[$i]}
 

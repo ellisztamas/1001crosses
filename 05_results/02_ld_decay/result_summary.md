@@ -5,21 +5,17 @@
 
 ## Background
 
-Linkage disequlibrium after one round of random mating ought to be half that of
-parents. Compare the decay of LD over short distances.
+Plot the decay in linkage disequilibrium over short distances.
 
 ## What did you do?
 
-- `01_get_LD.sh` calculates LD in plink.
-- `02_plot_LD.R` plots the results
+- `01_get_LD.sh` calculates LD as R2 and D in plink.
+- `02_plot_LD.R` plots the results (as R2)
+- `03_plot_D.R` plots the decay in D.
 
 ## Main conclusion
 
-LD starts lower and decays faster in the progeny than in the parents.
-At distances of 100kb LD levels out at about
-    r2=0.07 in the parents
-    r2=0.05 in the progeny
-So there is less of a difference than one would expect.
+D decays faster in the F8s than the parents, and bottoms out at a lower level.
 
 ## Caveats
 
