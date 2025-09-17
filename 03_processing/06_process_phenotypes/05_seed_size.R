@@ -3,9 +3,6 @@ library(tidyverse)
 
 # === Inputs === #
 
-# Import tidied flowering time data
-source("01_data/05_phenotype_expt/format_flowering_time_data.R")
-
 # Data frame giving original and corrected names
 source("03_processing/06_process_phenotypes/01_update_names.R")
 
@@ -76,7 +73,12 @@ raw_seed_sizes <- raw_seed_sizes %>%
   # Correct line names
   left_join(naming_file, by=c("genotype" = "original_name")) %>%
   mutate(
-    corrected_name = ifelse(grepl("x", genotype), corrected_name, genotype)
+    corrected_name = ifelse(grepl("x", genotype), corrected_name, genotype),
+    cohort = case_when(
+      !grepl("rep", genotype) ~ "parent",
+      grepl("rep1", genotype) ~ "rep1",
+      grepl("rep2", genotype) ~ "rep2"
+    )
   ) %>%
   dplyr::select(-genotype) %>%
   dplyr::rename(genotype = corrected_name)
@@ -93,9 +95,14 @@ raw_seed_sizes <- raw_seed_sizes %>%
 # Variance decomposition.
 # Label (i.e. plant ID) is required, because there are many seeds per plant
 model_seed_size <- lmer(
-  surface_area ~ (1 | rep/tray) + (1| genotype/label),
+  surface_area ~ (1 | rep/tray) + (1 | genotype/label) + (1|cohort),
   data = raw_seed_sizes
   )
+
+# As ever, residuals look overdispersed.
+# hist(fitted(model_seed_size))
+# hist(resid(model_seed_size))
+# plot(fitted(model_seed_size), resid(model_seed_size))
 
 seed_size_blups <- ranef(model_seed_size)$genotype %>%
   mutate(
@@ -124,6 +131,9 @@ parental_names %>%
   mutate(
     dummy_column = 0
   ) %>%
+  filter(
+    !is.na(blup)
+  ) %>%
   write_tsv(parents, col_names = FALSE)
 
 
@@ -134,6 +144,9 @@ progeny_blups <- progeny_names %>%
   select(dummy_column, genotype, blup) %>%
   mutate(
     dummy_column = 0
+  ) %>%
+  filter(
+    !is.na(blup)
   )
 # Data file for all progeny lines combined
 progeny_blups %>%

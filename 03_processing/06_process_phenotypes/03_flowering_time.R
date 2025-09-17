@@ -59,6 +59,12 @@ mod_ft <- glmer(
   days_to_flower ~ (1 | genotype) + (1| replicate/tray) + (1| cohort),
   data=flowering_time, family = 'poisson'
 )
+
+# Residuals are somewhat overdispersed
+# hist(fitted(mod_ft))
+# hist(resid(mod_ft))
+# plot(fitted(mod_ft), resid(mod_ft))
+
 ft_blups <- ranef(mod_ft)$genotype %>%
   mutate(
     dummy_column = 0, # Include a column of zeroes to tell GEMMA to fit an intercept
@@ -77,6 +83,9 @@ parental_names %>%
   mutate(
     dummy_column = 0
   ) %>%
+  filter(
+    !is.na(blup)
+  ) %>%
   write_tsv(parents, col_names = FALSE)
 
 
@@ -86,7 +95,10 @@ progeny_blups <- progeny_names %>%
   select(dummy_column, genotype, blup) %>%
   mutate(
     dummy_column = 0
-    )
+    ) %>%
+  filter(
+    !is.na(blup)
+  )
 # Data file for all progeny lines combined
 progeny_blups %>%
   write_tsv(combined, col_names = FALSE)

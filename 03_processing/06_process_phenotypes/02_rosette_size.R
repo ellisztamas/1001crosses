@@ -91,15 +91,24 @@ raw_rosette_size <- raw_rosette_size %>%
   pivot_longer(size1:size3, names_to = "measurement", values_to = "rosette")
 
 # Square-root transforming the data gives surprisingly nicely normal data
-#hist(sqrt(raw_rosette_size$rosette))
-#hist(log(raw_rosette_size$rosette))
+# hist(raw_rosette_size$rosette)
+# hist(sqrt(raw_rosette_size$rosette))
+# hist(log(raw_rosette_size$rosette))
 
 # Fit BLUPs for rosette size
-# This doesn't include replicate, because
 rosette_model <- lmer(
-    sqrt(rosette) ~  (1|cohort) + (1 | tray) + (1 | genotype) + (1|id) ,
+    rosette ~ (1|cohort) + (1 | tray) + (1 | genotype/id) + (1| replicate) ,
     data = raw_rosette_size
     )
+
+# The residuals are overdispersed!
+# This doesn't change if I use log or sqrt transforms (sqrt helps, but reduces interpretebility)
+# The issue goes away if I do:
+# sqrt(rosette) ~ (1|cohort) + (1 | tray) + (1 | genotype)
+# However,  plant ID seems to explain a lot of variation
+# hist(fitted(rosette_model))
+# hist(resid(rosette_model))
+# plot(fitted(rosette_model), resid(rosette_model))
 
 rosette_blups <- ranef(rosette_model)$genotype %>%
   mutate(
@@ -119,6 +128,9 @@ parental_names %>%
   mutate(
     dummy_column = 0
   ) %>%
+  filter(
+    !is.na(blup)
+  ) %>%
   write_tsv(parents, col_names = FALSE)
 
 # BLUPs for progeny, in the order they appear in the genotype file.
@@ -127,7 +139,10 @@ progeny_blups <- progeny_names %>%
   select(dummy_column, genotype, blup) %>%
   mutate(
     dummy_column = 0
-    )
+    ) %>%
+  filter(
+    !is.na(blup)
+  )
 # Data file for all progeny lines combined
 progeny_blups %>%
   write_tsv(combined, col_names = FALSE)
