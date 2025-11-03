@@ -70,6 +70,19 @@ eigenvecs$parents <- eigenvecs$parents %>%
   left_join(gps, by = "FID")
 ```
 
+```{r}
+admixture_groups <- read_csv(
+  "01_data/03_parental_genotypes/admixture_groups_filiault_etal_2025.csv",
+  col_names = c("FID", "group"),
+  col_types = 'cc'
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(admixture_groups, by = "FID")
+
+```
+
+
 
 ```{r ft12-data}
 # BLUPs for flowering time at 12°C
@@ -196,14 +209,14 @@ ggarrange(
 
 F8 cohorts are well mixed.
 
-```{r}
+```{r f8-cohorts-mixed}
 eigenvecs$progeny %>%
   mutate(cohort = case_when(
     grepl("_rep1", FID) ~ "Cohort 1",
     grepl("_rep2", FID) ~ "Cohort 2",
     .default = NA
   )) %>% 
-  ggplot(aes(x=PC1, y = PC2, colour = cohort)) +
+  ggplot(aes(x=PC1, y = -PC2, colour = cohort)) +
   geom_point() +
   labs(
     x = paste0("PC1 (", eigenvals$progeny$eigenval[1], "%)"),
@@ -213,44 +226,6 @@ eigenvecs$progeny %>%
   theme_bw()
 ```
 
-### Cluster of individuals with high PC2
-
-Here are the samples with high PC2:
-
-```{r}
-pc2_cluster <- eigenvecs$progeny %>% 
-  filter(PC1 > 0.1) %>% 
-  pull(FID)
-pc2_cluster
-```
-
-They are derived from nine unique parents:
-
-```{r}
-parents_of_pc2_cluster <- c(
-  substr(pc2_cluster, start = 1, stop = 4),
-  substr(pc2_cluster, start = 6, stop = 9)
-)
-parents_of_pc2_cluster <- unique(parents_of_pc2_cluster)
-parents_of_pc2_cluster
-```
-
-I was expecting these parents to all have high values of PC2 themselves, but this is not the case. In fact, what they have in common are parents 1435, 5835 and 6199, which were taken from the RegMap panel.
-
-```{r}
-eigenvecs$parents %>%
-  mutate(
-    is_parent = FID %in% parents_of_pc2_cluster
-  ) %>% 
-  ggplot(aes(x=PC1, y = PC2, colour = is_parent)) +
-  geom_point() +
-  labs(
-    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
-    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
-    title = "Parents of the cluster of 9"
-  ) +
-  theme_bw()
-```
 
 ## What are PCs correlated with?
 
@@ -258,7 +233,7 @@ eigenvecs$parents %>%
 
 PC1 appears to be correlated with latitude, with higher values found further further North.
 
-```{r}
+```{r pca-long-lat}
 eigenvecs$parents %>% 
   ggplot(aes(x=PC1, y = PC2, colour = latitude)) +
   geom_point() +
@@ -306,7 +281,9 @@ geography_cor %>%
 ```
 
 You can see broadly the same pattern if you plot them on a map.
-There is also one whacky accession from the Netherlands (7002) which was identified as a mismatching cross.
+Accession 175 is from France - this was in the original sample sheet and appears to be deliberate, or else snuck in.
+There is also one whacky accession from the Netherlands (7002).
+This was originally something else, but I identified it as a parent during validation.
 
 ```{r map}
 
@@ -332,8 +309,8 @@ map_data('world') %>%
   ) +
   theme_bw() +
   theme(
-    legend.position = "none",
-    legend.title = element_blank(),
+    # legend.position = "none",
+    # legend.title = element_blank(),
     axis.title = element_blank(),
     axis.text = element_blank(),
     axis.ticks = element_blank(),
@@ -344,10 +321,51 @@ map_data('world') %>%
     )
 
 # There's a whacky accession from the Netherlands (7002)
-# eigenvecs$parents %>%
-#   filter(latitude < 51.4) %>% 
-#   select(IID, id, latitude, longitude)
+eigenvecs$parents %>%
+  # filter(latitude >62) %>%
+  arrange(desc(latitude)) %>% 
+  select(IID, id, latitude, longitude, PC1, PC2, group) %>% 
+  View()
 
+```
+
+Here is a zoom-in on the south of Sweden.
+
+```{r}
+map_data('world') %>% 
+  ggplot() +
+  # Plot an empty map of the world
+  # Borders are shown the same colour as the country backgrounds
+  geom_polygon(
+    aes(x=long, y = lat, group = group),
+    fill="gray90", colour="gray70") + 
+  coord_fixed(
+    xlim = c(13,15),
+    ylim = c(55.2,56.3),
+    # xlim = c(17,19),
+    # ylim = c(62,63.5),
+    1.5
+  ) +
+  # Overplot the accessions
+  geom_point(
+    data = eigenvecs$parents ,
+    aes(x=longitude, y = latitude, colour=group)) +
+  labs(
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    # legend.position = "none",
+    # legend.title = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+    )
 ```
 
 The following plot shows the scatter plot of the main PCs against latitude for the parental lines.
@@ -378,6 +396,43 @@ eigenvecs$parents %>%
   ) +
   theme_bw(),
 ncol=2
+)
+```
+
+Filault *et al.* (2025) looked at local adaptation among Swedish accessions using a panel very similar to the parents used here.
+They distinguished four admixture groups:
+
+* Beach lines (B)
+* Northern lines (N)
+* Southern lines 1 (S1)
+* Southern lines 2 (S2)
+
+Here the parents coloured by admixture group:
+
+* PC1 separates northern and southern Sweden.
+* PC2 separates group S2 from everyone else.
+* PC3 separates the beach lines from everyone else.
+
+
+```{r pca-admixture-group}
+ggarrange(
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC1, y = PC2, colour = group)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+    ) +
+    theme_bw(),
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC1, y = PC3, colour = group)) +
+    geom_point() +
+    labs(
+      x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+      y = paste0("PC3 (", eigenvals$parents$eigenval[3], "%)")
+    ) +
+    theme_bw(),
+  common.legend = TRUE, ncol=2, nrow=1
 )
 ```
 
@@ -423,10 +478,10 @@ ft12_cor <- tibble(
   progeny = rep(NA, 18)
 )
 
-plot(
-  eigenvecs$parents$PC1,
-  eigenvecs$parents$days_to_flower
-)
+# plot(
+#   eigenvecs$parents$PC1,
+#   eigenvecs$parents$days_to_flower
+# )
 
 for(i in 3:20){
   ft12_cor$parents[i-2] <- cor(
@@ -602,5 +657,17 @@ ss_cor %>%
 
 
 
+```{r}
+eigenvecs$parents %>% 
+  ggplot(aes(x = PC1, y = seed_size, colour =group)) +
+  geom_point()
+
+eigenvecs$parents %>% 
+  ggplot(aes(x = PC3, y = seed_size, colour =group)) +
+  geom_point()
+
+eigenvecs$parents %>% 
+  filter(PC2 > 0.1, seed_size > 0.02)
+```
 
 
