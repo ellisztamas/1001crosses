@@ -7,7 +7,7 @@ library(tidyverse)
 
 # A list of names for parental accessions.
 parental_names <- read_csv(
-  "03_processing/05_imputation/output/parental_line_names.txt",
+  "03_processing/09_impute_haplotypes/output/parental_line_names.txt",
   col_names = c("id"),
   col_types = 'c'
 )
@@ -22,7 +22,7 @@ metadata_1135 <- read_csv(
     id = as.character(id)
   ) %>%
   select(
-    id, latitude, longitude
+    id, latitude, longitude, group
   )
 # Metadata for 5966 accessions from Anastasio et al 2011
 metadata_5966 <- read_csv(
@@ -35,10 +35,11 @@ metadata_5966 <- read_csv(
     longitude = Longitude
   ) %>%
   mutate(
-    id = as.character(id)
+    id = as.character(id),
+    group = NA
     ) %>%
   select(
-    id, latitude, longitude
+    id, latitude, longitude, group
   )
 
 
@@ -61,7 +62,7 @@ parental_coords <- rbind(
 )
 
 
-parental_coords %>%
+parental_coords <- parental_coords %>%
   mutate(
     latitude = case_when(
       id == "7519" ~ 56.14,

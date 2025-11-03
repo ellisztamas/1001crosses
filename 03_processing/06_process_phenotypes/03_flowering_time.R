@@ -20,11 +20,11 @@ source("03_processing/06_process_phenotypes/01_update_names.R")
 
 # List of parental and F8 lines that have been genotyped and validated
 parental_names <- read_csv(
-  "03_processing/05_imputation/output/parental_line_names.txt",
+  "03_processing/09_impute_haplotypes/output/parental_line_names.txt",
   col_names = c("genotype"), col_types = 'c'
 )
 progeny_names <- read_csv(
-  "03_processing/05_imputation/output/F8_phased_imputed_line_names.txt",
+  "03_processing/09_impute_haplotypes/output/F8_imputed_line_names.txt",
   col_names = c("genotype"), col_types = 'c'
 )
 

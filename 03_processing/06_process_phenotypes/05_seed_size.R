@@ -58,7 +58,7 @@ exp_design <- exp_design %>%
     genotype = gsub(" rep", "_rep", genotype)
   )
 
-# Simplify to label, intrument, pixel count, sirface area and SSE, then
+# Simplify to label, intrument, pixel count, surface area and SSE, then
 # merge with exp_design
 raw_seed_sizes <- raw_seed_sizes %>%
   dplyr::select(`Pick description`, Instrument, `Pixel count`, Surface, SSE) %>%
