@@ -81,7 +81,6 @@ while true; do
     --vcf) vcf=$2 ; shift 2;;
     --phenotypes) pheno_file=$2        ; shift 2;;
     --outdir) outdir=$2 ; shift 2 ;;
-    --covariates) covariates=$2 ; shift 2 ;;
     --gemma_args)
       gemma_args="$2"
       shift 2
@@ -143,7 +142,6 @@ echo " Running GEMMA using the Plink relatedness matrix..."
 gemma \
     -bfile $plink_output \
     -k ${tmp_dir}/${pheno_name}_K_matrix.cXX.txt \
-    -c $covariates \
     -outdir $with_K -o $pheno_name \
     -lmm 4 \
     $gemma_args
@@ -153,7 +151,6 @@ gemma \
     -bfile $plink_output \
     -outdir $no_K \
     -o $pheno_name \
-    -c $covariates \
     -lm 4 \
     $gemma_args
 
