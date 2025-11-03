@@ -1,0 +1,450 @@
+---
+title: "Estimating epistatic effects flowering time"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    self-contained: true
+    message: false
+    warning: false
+---
+
+```{r setup, echo=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+library(knitr)
+
+library(brms)
+```
+
+Flowering time has heritability of around 0.8, and GWAS returns a long list of peaks.
+Here is a plot highlighting 33 markers that look like peaks highlighted in red.
+
+```{r load-all-F9s}
+source("02_library/manhattan_plot.R")
+
+all_F9s_no_K <- read_delim(
+  "05_results/16_gemma_ft12/output/no_K/flowering_time_blups_F9_combined.assoc.txt",
+  delim = '\t',
+  show_col_types = FALSE
+) %>% 
+  mutate(
+    SNP = paste0(chr, ":", ps),
+    log10p = -log10(p_lrt)
+  )
+all_F9s_no_K <- add_base_pair_positions(all_F9s_no_K)
+
+# Candidate peak positions.
+ft12_peaks <- read_csv(
+  "05_results/16_gemma_ft12/output/top_SNPs/candidate_peak_positions.csv",
+  col_types = "ii",
+  col_names = c("chr", "ps")
+)
+ft12_peaks <- ft12_peaks %>% 
+  left_join(all_F9s_no_K, by=c("chr", "ps"))
+```
+
+```{r mh-allf9, fig.width=15, fig.height=8}
+all_F9s_no_K %>% 
+  filter(log10p > 5) %>% 
+  ggplot(aes(x=ps_cum, y=log10p)) +
+  geom_point( aes(color=as.factor(chr)), alpha=0.8, size=1.3) +
+  scale_color_manual(values = rep(c("grey", "skyblue"), 22 )) +
+  geom_point(data = ft12_peaks, color='red') +
+  labs(
+    x = "Chromosome",
+    y = expression(paste("-log"[10],"p-value")),
+    title = "All F9s at once, with manually-called SNP positions"
+  ) +
+  theme_bw() +
+  theme( 
+    legend.position="none",
+    panel.border = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+```
+
+I suspected that there would also be epistatic interactions.
+An intitial analysis with an old-fashioned multiple regression indicated that there were 66 significant interaction terms (of a possible 435 pairs of main terms), and that two of these on Chr5 explained more than half the phenotypic between them.
+
+However, this is a challenging analysis because there are more possible terms to estimate than there are data points.
+In this case we would expect estimates to have big standard errors.
+The way to solve this is to introduce some kind of sensible regularisation on the effect-sizes estimates.
+In this case I will define the phenotype as a Bayesian model that uses informative priors to regularise the estimates.
+
+## A model for flowering time
+
+The model seeks to model BLUPs for flowering time among 390 F9s, that have been mean-centred and scaled to a variance of one.
+The BLUP estimation also took account of replicate and tray effects, so I ignore them here.
+Here is a histogram of the data, which look very approximately normal.
+
+```{r}
+pheno <- read_tsv(
+  "03_processing/06_process_phenotypes/output/flowering_time_blups_F9_combined.tsv",
+  col_names = c("fid", 'genotype', 'blup'),
+  show_col_types = FALSE
+) %>% 
+  mutate(
+    blup = scale(blup)
+  )
+
+pheno %>% 
+  ggplot(aes(x = blup)) +
+  geom_histogram()
+
+
+```
+
+We have a vector of BLUPs $y$ and a matrix of genotypes at $N$ markers.
+The phenotype of the $i^{th}$ line can be modelled as a function of intercept $a$, the main effects of each marker $\beta_j$ and the epistatic effects of all pairs of markers $\beta_{jk}$:
+
+$$
+y_i = a + \Sigma_j \beta_j X_{ij} + \Sigma_{j<k} \beta_{jk}X_{ij}X_{ik} + e_i
+$$
+where
+
+$$
+a \sim N(\mu, \sigma_a^2) \\
+\beta_j \sim N(0, \sigma_{main}^2)  \\
+\beta_{jk} \sim N(0, \sigma_{epistatic}^2)  \\
+e \sim N(0, \sigma_e^2)
+$$
+In this case the data are already scaled, we can assume $a=0$, but I included it for completeness.
+
+It is also common to further define hyperparameters for the variance components (the parameters labelled $\sigma$).
+I won't do that here, partly for simplicity and partly because this takes some extra tricks to get it working with BRMS.
+
+```{r load-gt-data}
+
+#' Import genotype data
+#' 
+#' This imports and formats genotype data from some kind of
+#' VCF-formatting tool.
+#' 
+#' The input is assumed to have a row for each SNP and a column for
+#' each sample. The first two columns are CHROM and POS.
+#' 
+#' The output has a row for each sample and a column for each SNP.
+#' SNP names are delimted with underscores rather than colons so
+#' I can pass them to linear model syntax.
+import_gt <- function(file_path){
+  # Import the data file
+  gt <- read_tsv(file_path, show_col_types = FALSE)
+  
+  # Extract the names of SNPs and samples
+  snp <- paste0(gt$chr, "_", gt$pos)
+  sample_names <- colnames(gt)[-1:-2]
+  # Transpose, using only the data columns
+  gt <- t(gt[,-1:-2])
+  # Fix column and row names.
+  colnames(gt) <- snp
+  gt <- as_tibble(gt) %>% 
+    mutate(sample = sample_names) %>% 
+    dplyr::select(sample, everything())
+  gt
+  
+}
+
+
+genotypes_comb <- import_gt(
+  "05_results/16_gemma_ft12/output/06_top_SNP_genotypes/flowering_time_blups_F9_combined_top_SNPS.tsv"
+)
+
+
+
+genotypes_comb %>% names
+
+for(j in 2:ncol(genotypes_comb)){
+  na_elements_ix <- which(is.na(genotypes_comb[,j]))
+  column_mean <- mean(genotypes_comb[,j] %>% pull(), na.rm=TRUE)
+  genotypes_comb[na_elements_ix, j] <- column_mean
+}
+```
+
+```{r}
+# Four of the markers are close to known candidate genes
+candidate_markers <- c(
+  "Chr2_9593397", # SVN
+  'Chr5_3184215', # FLC
+  'Chr5_23141226', # VIN3
+  'Chr4_379786' # FRI
+)
+candidate_genotypes <- genotypes_comb[,candidate_markers]
+
+
+MM <- model.matrix(~ (.), data=candidate_genotypes)[,-1]
+
+# MM has a row for each observation and a column for each marker.
+head(MM)
+
+
+# Generate effect sizes for all cols in MM
+heritability <- 0.8
+
+sim_phenotypes <- function(model_matrix, sigma_b, heritability){
+  # Vector of genetic values for each line
+  beta_main <- rnorm(ncol(model_matrix), mean = 0, sd = sqrt(sigma_b))
+  genetic_values <- as.vector(model_matrix %*% beta_main)
+  # The expected variance in residuals is the product of the variance in genetic values and 1-h2
+  sigma_e <- (1-heritability) * var(genetic_values)
+  # Simulate some residual terms for each line
+  residuals <- rnorm(
+    n = nrow(model_matrix),
+    mean = 0,
+    sd=sqrt(sigma_e)
+  )
+  # Phenotypes are the sum of genetic values and residuals
+  sim_phenotypes <- genetic_values + residuals
+  
+  sim_phenotypes - mean(sim_phenotypes)
+}
+
+replicate_sims <- function(model_matrix, sigma_b, heritability=0.8, nsims=50){
+  sim_list <- vector('list', length = nsims)
+  
+  for(rep in 1:nsims){
+    sim_list[[rep]] <- tibble(
+      sigma_b = sigma_b,
+      heritability = heritability,
+      rep = as.factor(rep),
+      phenotype = sim_phenotypes( model_matrix, sigma_b, heritability )
+    )
+  }
+  do.call('rbind', sim_list)
+}
+
+x <- replicate_sims( model_matrix = MM, sigma_b = 0.5 , heritability = 0.8)
+
+ggplot() +
+  geom_histogram(data = pheno, aes(x = blup)) +
+  geom_freqpoly(
+    data = x %>% filter(rep %in% 1:15), aes(x = phenotype, color = rep)
+    ) +
+  scale_color_manual(values = rep("grey", 15)) +
+  guides(colour='none') +
+  theme_minimal()
+ 
+
+```
+
+
+```{r}
+
+MM <- model.matrix(~ (.)^2, data=genotypes_comb[,-1])[,-1]
+
+gaussian_epi_sims <- rbind(
+  replicate_sims( model_matrix = MM, sigma_b = 0.002),
+  replicate_sims( model_matrix = MM, sigma_b = 0.001),
+  replicate_sims( model_matrix = MM, sigma_b = 0.0005)
+)
+
+gaussian_epi_sims %>% 
+  group_by(rep, sigma_b) %>% 
+  summarise(
+    sd = sd(phenotype)
+  ) %>% 
+  mutate(sigma_b = as.factor(sigma_b)) %>% 
+  ggplot(aes(x = sigma_b, y = sd, group=sigma_b)) +
+  geom_boxplot()
+
+x %>%  
+  group_by(rep) %>% 
+  summarise(
+    sd = sd(phenotype)
+  )
+
+ggplot() +
+  geom_histogram(data = pheno, aes(x = blup)) +
+  geom_freqpoly(
+    data = x %>% filter(rep %in% 1:15), aes(x = phenotype, color = rep)
+    ) +
+  scale_color_manual(values = rep("grey", 15)) +
+  guides(colour='none') +
+  theme_minimal()
+ 
+
+```
+
+```{r}
+priors <- c(
+  prior(normal(0, 0.5), class = "b"),  # all regression coefficients
+  prior(normal(0, 1), class = "Intercept"),  # intercept (less restrictive)
+  prior(exponential(1), class = "sigma")     # residual standard deviation
+)
+
+data_main_terms <- cbind(
+  pheno = pheno$blup,
+  # genotypes_comb[,-1]
+  candidate_genotypes
+)
+
+fit_four_main_terms <- brm(
+  formula = pheno ~ (.)^2,
+  data = data_main_terms,
+  family = gaussian(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  cores = 4,
+  seed = 123
+  # file = "05_results/16_gemma_ft12/output/brms_four_main_terms.rds"
+)
+
+# looks gaussian!
+pp_check(fit)
+
+hist(fixef(fit)[-1,1])
+```
+
+
+```{r}
+
+priors <- c(
+  prior(normal(0, 0.001), class = "b"),  # all regression coefficients
+  prior(normal(0, 1), class = "Intercept"),  # intercept (less restrictive)
+  prior(exponential(1), class = "sigma")     # residual standard deviation
+)
+
+model_data <- cbind(
+  pheno = pheno$blup,
+  genotypes_comb[,-1]
+  # candidate_genotypes
+)
+
+fit_all_pairwise <- brm(
+  formula = pheno ~ .^2,
+  data = model_data,
+  family = gaussian(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  cores = 4,
+  seed = 123,
+  file = "05_results/16_gemma_ft12/output/brms_all_pairwise.rds"
+)
+
+# looks gaussian!
+pp_check(fit_all_pairwise)
+
+summary(fit_all_pairwise)
+
+hist(fixef(fit_all_pairwise)[-1,1])
+
+x <- fixef(fit_all_pairwise)
+
+x[-1,] %>%
+  as_tibble() %>% 
+  mutate(
+    locus = row.names(x[-1,])
+  ) %>% 
+  arrange(desc(abs(Estimate))) #%>% 
+  # filter(locus %in% candidate_markers)
+
+ix <- grepl(":", row.names(x))
+
+hist(x[!ix,1][-1])
+hist(x[ix,1])
+
+
+y <- model.matrix(~ (.)^2, data=genotypes_comb[,-1])[,-1]
+
+genetic_variances <- tibble(
+  term = row.names(x)[-1],
+  gve  = x[-1,1]^2 * apply(y, 2, var)
+) %>% 
+  mutate(
+    type = ifelse(grepl(":", term), "interaction", "main")
+  )
+
+genetic_variances %>% 
+  ggplot(aes(x= type, y = gve)) +
+  geom_violin()
+
+genetic_variances %>% 
+  ggplot(aes(x = gve, colour =type)) +
+  geom_freqpoly()
+
+genetic_variances %>% 
+  group_by(type) %>% 
+  summarise(
+    gve = sum(gve)
+  )
+
+genetic_variances %>% 
+  arrange(desc(gve))
+
+#' Chr1_22915714:Chr2_9593397: VIP5, SVN
+#' Chr4_16702962:Chr5_19964309: Rem17, about 1mb from dog1
+#' Chr4_16702962:Chr5_17151071: REM17, other side of dog1
+#' Chr1_22915714:Chr5_12437618: VIP5, NA
+#' Chr2_12973980:Chr2_18234350: FLX, NA
+#' Chr1_22915714:Chr2_11756441: VIP5, maybe FLX
+#' Chr2_18234350:Chr3_6774415: NA, NA
+#' Chr2_18234350:Chr5_19964309: NA, maybe dog1
+#' Chr5_12437618:Chr5_23141226: NA, VIN3
+#' Chr2_11756441:Chr4_16702962: maybe FLX, REM17
+
+# SVM
+x[-1,] %>%
+  as_tibble() %>% 
+  mutate(
+    locus = row.names(x[-1,])
+  ) %>% 
+  filter(grepl("Chr2_9593397", locus)) %>% 
+  arrange(desc(Estimate))
+
+# FLX
+x[-1,] %>%
+  as_tibble() %>% 
+  mutate(
+    locus = row.names(x[-1,])
+  ) %>% 
+  filter(grepl("Chr2_12973980", locus)) %>% 
+  arrange(desc(Estimate))
+
+# Rem17
+x[-1,] %>%
+  as_tibble() %>% 
+  mutate(
+    locus = row.names(x[-1,])
+  ) %>% 
+  filter(grepl("Chr4_16702962", locus)) %>% 
+  arrange(desc(Estimate))
+
+# FLC
+x[-1,] %>%
+  as_tibble() %>% 
+  mutate(
+    locus = row.names(x[-1,])
+  ) %>% 
+  filter(grepl("Chr5_3184215", locus)) %>% 
+  arrange(desc(Estimate))
+
+```
+
+
+```{r}
+sim_horseshoe <- function(X, sigma = 1) {
+  p <- ncol(X)
+  rhalfcauchy <- function(n, scale = 1) abs(rcauchy(n, 0, scale))
+  lambda <- rhalfcauchy(p)
+  tau    <- rhalfcauchy(1)
+  beta   <- rnorm(p, 0, tau * lambda)
+  y      <- as.numeric(as.matrix(X) %*% beta + rnorm(nrow(X), 0, sigma))
+  list(y = y, beta = beta, tau = tau, lambda = lambda)
+}
+
+out <- sim_horseshoe(X)
+```
+
+

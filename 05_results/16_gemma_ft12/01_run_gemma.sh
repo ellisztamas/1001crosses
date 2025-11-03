@@ -6,9 +6,9 @@
 # Tom Ellis, 14th April 2025
 
 # SLURM
-#SBATCH --job-name=16_gemma_ft12
-#SBATCH --output=slurm/%x-%a.out
-#SBATCH --error=slurm/%x-%a.err
+#SBATCH --job-name=01_gemma_ft12
+#SBATCH --output=05_results/16_gemma_ft12/slurm/%x-%a.out
+#SBATCH --error=05_results/16_gemma_ft12/slurm/%x-%a.err
 #SBATCH --mem=20GB
 #SBATCH --qos=short
 #SBATCH --time=2:00:00
@@ -26,13 +26,11 @@ pheno_file_array=(03_processing/06_process_phenotypes/output/flowering_time*tsv)
 phenotype_file=${pheno_file_array[$i]}
 
 # VCF files for parents and F8s
-progeny_vcf=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
-parents_vcf=03_processing/05_imputation/output/parental_lines.vcf.gz
-cohort1_vcf=03_processing/05_imputation/output/F8_cohort1_phased_imputed.vcf.gz
-cohort2_vcf=03_processing/05_imputation/output/F8_cohort2_phased_imputed.vcf.gz
+progeny_vcf=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
+parents_vcf=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
 # Array of paths to VCF files.
 # It is really important that these are in the same order as the phenotype files!
-vcf_array=($progeny_vcf $parents_vcf $cohort1_vcf $cohort2_vcf)
+vcf_array=($progeny_vcf $parents_vcf $progeny_vcf $progeny_vcf)
 input_vcf=${vcf_array[$i]}
 
 
@@ -40,7 +38,7 @@ input_vcf=${vcf_array[$i]}
 # === Output files === #
 
 # Output directory for GEMMA results and temporary files.
-outdir=05_results/${SLURM_JOB_NAME}/output
+outdir=05_results/16_gemma_ft12/output
 mkdir -p $outdir
 # Additional arguments passed to GEMMA
 # Run all three kinds of statistical test using a minor-allele-frequency of 0.05

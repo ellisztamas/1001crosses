@@ -6,6 +6,8 @@ format:
   html:
     toc: true
     self-contained: true
+    message: false
+    warning: false
 ---
 
 ```{r setup, echo=FALSE}
@@ -15,6 +17,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 suppressPackageStartupMessages(library(tidyverse))
 library(ggpubr)
 library(knitr)
+library(ggpointdensity)
 ```
 
 
@@ -23,22 +26,22 @@ source("02_library/manhattan_plot.R")
 
 
 # Vector of GEMMA output files.
-gemma_output_paths <- Sys.glob(
+noK_output_paths <- Sys.glob(
   "05_results/16_gemma_ft12/output/no_K/*.assoc.txt"
 )
 # Drop the file with all F9s combined.
-gemma_output_paths <- grep(
-  "F9_combined", gemma_output_paths,
+noK_output_paths <- grep(
+  "F9_combined", noK_output_paths,
   invert = TRUE, value = TRUE
 )
 
 
-gwas <- vector("list", length=length(gemma_output_paths))
-names(gwas) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+noK <- vector("list", length=length(noK_output_paths))
+names(noK) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
 
-for(f in 1:length(gwas)){
+for(f in 1:length(noK)){
   gemma_file <- read_tsv(
-    gemma_output_paths[f],
+    noK_output_paths[f],
     # n_max = 1000,
     col_types = 'iciiiccnnnnnn'
   ) %>%
@@ -47,25 +50,24 @@ for(f in 1:length(gwas)){
       varexp = beta^2 * af * (1-af)
     )
   
-  gwas[[f]] <- gemma_file
+  noK[[f]] <- gemma_file
   
 }
 
 # Merge the result files
 merge_gwas <- inner_join(
-  gwas$Parents, gwas$F9_cohort_1,
+  noK$Parents, noK$F9_cohort_1,
   by = c("chr", "ps"),
   suffix = c("_parents", "")
 ) %>%
   inner_join(
-    gwas$F9_cohort_2,
+    noK$F9_cohort_2,
     by = c("chr", "ps"),
     suffix = c("_cohort1", "_cohort2")
   ) %>% 
   mutate(
     SNP = paste0(chr, "_", ps)
   )
-
 ```
 
 ```{r candidate-gene-gff}
@@ -129,26 +131,7 @@ Chr5:
 
 Frigida, and something very close to it, also pops out at the start of Chr4
 
-```{r create-mh}
 
-plot_titles <- c(
-  "Parents",
-  "F9 cohort 1",
-  "F9 cohort 2"
-)
-
-mh_plots <- vector('list', length(gemma_output_paths))
-
-for( i in 1:3){
-  mh_plots[[i]] <- manhattan_plot(
-    chr=gwas[[i]]$chr,
-    pos=gwas[[i]]$ps,
-    pvalue=gwas[[i]]$p_lrt,
-    signif_cutoff = 0.05, fraction_to_keep = 0.01,
-    title = plot_titles[i]
-  )
-}
-```
 
 ```{r mh-noK, fig.height=5, fig.width=15}
 #| warning: false
@@ -183,7 +166,7 @@ qqman::manhattan(
 The plot below shows p-values for GWAS for flowering time at 12°C without a K matrix, comparing parents to two cohorts of F9 plants.
 P-values are strongly correlated.
 
-```{r cohort-pvals, fig.width=10}
+```{r cohort-pvals, fig.width=15}
 
 # Spearman rank correlations for p-value distributions
 pval_correlations <- c(
@@ -196,9 +179,10 @@ pval_correlations <- sapply(pval_correlations, round, 3)
 
 ggpubr::ggarrange(
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = log10p_parents, y=log10p_cohort1 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "-log10 p (parents)",
       y = "-log10 p (F9 cohort 1)",
@@ -206,9 +190,10 @@ ggpubr::ggarrange(
       subtitle = paste("\u03c1 = ", pval_correlations[1])
     ),
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = log10p_parents, y=log10p_cohort2 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "-log10 p (parents)",
       y = "-log10 p (F9 cohort 2)",
@@ -216,9 +201,10 @@ ggpubr::ggarrange(
       subtitle = paste("\u03c1 = ", pval_correlations[2])
     ),
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = log10p_cohort1, y=log10p_cohort2 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "-log10 p (F9 cohort 1)",
       y = "-log10 p (F9 cohort 2)",
@@ -262,7 +248,7 @@ qqplot_gwas <- function(pvalues, main="QQ Plot for GWAS", ...) {
     # Add reference line
     geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
     # Add observed points
-    geom_point() +
+    geom_pointdensity() +
     # Labels and theme
     labs(x=expression(Expected~~-log[10](p)), 
          y=expression(Observed~~-log[10](p)),
@@ -317,9 +303,9 @@ qq_plot_multiple(pvalue_list, labels, colors)
 
 In fact $\lambda$ values are quite different:
 
-- 4.361 for the parents
-- 2.078 for cohort 1
-- 2.075 for cohort 2
+- 4.486 for the parents
+- 2.546 for cohort 1
+- 2.750 for cohort 2
 
 The plot below shows ordered p-values for the parents against both cohorts of F9s.
 They're under the diagonal, and there's a step in the same place.
@@ -334,7 +320,7 @@ merge_gwas %>%
   select(parents, cohort1, cohort2) %>% 
   pivot_longer(cohort1 : cohort2) %>% 
   ggplot(aes(x = parents, y = value, colour=name))+
-  geom_point() +
+  geom_pointdensity() +
   geom_abline() +
   labs(
     x = "log10 p (parents)",
@@ -353,7 +339,7 @@ merge_gwas %>%
 The plot below shows effect sizes for of SNPs estimated by GEMMA without a K matrix for flowering time at 12°C, comparing parents to two cohorts of F9 plants.
 These effects sizes are even more strongly correlated than were p-values.
 
-```{r cohort-betas, fig.width=10}
+```{r cohort-betas, fig.width=15}
 # Spearman rank correlations for effect-size distributions
 beta_correlations <- c(
   cor(merge_gwas$beta_parents, merge_gwas$beta_cohort1, method='s'),
@@ -366,9 +352,10 @@ beta_correlations <- sapply(beta_correlations, round, 3)
 
 ggpubr::ggarrange(
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = beta_parents, y=beta_cohort1 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "SNP effect (parents)",
       y = "SNP effect (F9 cohort 1)",
@@ -377,9 +364,10 @@ ggpubr::ggarrange(
     ),
   
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = beta_parents, y=beta_cohort2 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "SNP effect (parents)",
       y = "SNP effect (F9 cohort 2)",
@@ -388,9 +376,10 @@ ggpubr::ggarrange(
     ),
   
   merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
     ggplot(aes(x = beta_cohort1, y=beta_cohort2 )) +
-    geom_point()+
-    coord_fixed() +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
     labs(
       x = "SNP effect (F9 cohort 1)",
       y = "SNP effect (F9 cohort 2)",
@@ -402,7 +391,7 @@ ggpubr::ggarrange(
 )
 ```
 
-There are no obvious differences in mean or variance of effect sizes.
+The spread in effect sizes is a little higher for the parensts than the F8s.
 
 ```{r boxplot-beta}
 beta_summary_stats <- tibble(
@@ -441,26 +430,201 @@ merge_gwas %>%
 
 ```
 
-Here is a table of the SNPs with absolute values of effect sizes greater than 0.3.
-You can see that they all come from five regions on Chr 1, 4 and 5.
-Associations are not strong, but they all have minor allele frequencies close to 0.5, which screams 'artefact'.
+## With and without population structure control
 
-```{r}
-knitr::kable(merge_gwas %>% 
-               filter(
-                 abs(beta_parents) > 0.3
-               ) %>% 
-               select(chr, ps, af_parents, log10p_parents)
+```{r load-withK}
+# Vector of GEMMA output files.
+withK_output_paths <- Sys.glob(
+  "05_results/16_gemma_ft12/output/with_K/*.assoc.txt"
+)
+# Drop the file with all F9s combined.
+withK_output_paths <- grep(
+  "F9_combined", withK_output_paths,
+  invert = TRUE, value = TRUE
+)
+
+
+withK <- vector("list", length=length(withK_output_paths))
+names(withK) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+
+for(f in 1:length(withK)){
+  gemma_file <- read_tsv(
+    withK_output_paths[f],
+    # n_max = 1000,
+    col_types = 'iciiccnnnnnnnnn'
+  ) %>%
+    mutate(
+      SNP = paste0(chr, "_", ps),
+      log10p = -log10(p_lrt),
+      varexp = beta^2 * af * (1-af)
+    )
+  
+  withK[[f]] <- gemma_file
+  
+}
+
+```
+
+## Manhattan plots
+
+Here are Manhattan plots for GWAS on the same data, but this time including a kinship matrix.
+The peaks are modest, and anything but consistent between cohorts.
+
+```{r mh-withK, fig.height=5, fig.width=15}
+#| warning: false
+
+
+qqman::manhattan(
+  withK$Parents, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$Parents)),
+  main  = "Parents"
+)
+
+qqman::manhattan(
+  withK$F9_cohort_1, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$F9_cohort_1)),
+  main  = "F9 cohort 1"
+)
+
+qqman::manhattan(
+  withK$F9_cohort_2, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$F9_cohort_2)),
+  main  = "F9 cohort 2"
 )
 ```
 
-I checked heterozygosity at these sites with a command like this:
-```
-bcftools query \
--r Chr5:4007332 \
--f "$CHROMS %POS %REF %ALT [ %GT]\n" \
-03_processing/05_imputation/output/parental_lines.vcf.gz | \
-head
-```
-They all appear to be heterozygous across samples, so this looks like an artefact.
+## P-values
 
+Comparing p-values for analyses with and without a kinship matrix.
+
+
+```{r pvals-with-without-K, fig.width=15}
+
+merge_parents <- inner_join(
+  noK$Parents, withK$Parents,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+
+
+
+merge_cohort1 <- inner_join(
+  noK$F9_cohort_1, withK$F9_cohort_1,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+
+merge_cohort2 <- inner_join(
+  noK$F9_cohort_2, withK$F9_cohort_2,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+ggarrange(
+  merge_parents %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "Parents",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[1])
+    ) +
+    theme_bw(),
+  
+  merge_cohort1 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 1",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[2])
+    ) +
+    theme_bw(),
+  
+  
+  merge_cohort2 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 2",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[3])
+    ) +
+    guides(colour='none') +
+    theme_bw(),
+  nrow=1, ncol = 3, legend='none'
+)
+
+
+
+```
+
+## Effect sizes
+
+```{r beta-with-without-K, fig.width=15}
+
+
+
+ggarrange(
+  
+  merge_parents %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "Parents",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[1])
+    ) +
+    theme_bw(),
+  
+  merge_cohort1 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 1",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[2])
+    ) +
+    theme_bw(),
+  
+  merge_cohort2 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 2",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[3])
+    ) +
+    theme_bw(),
+  nrow=1, ncol = 3, common.legend = TRUE, legend='none'
+)
+
+
+
+```

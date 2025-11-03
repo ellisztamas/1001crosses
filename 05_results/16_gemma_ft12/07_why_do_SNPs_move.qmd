@@ -6,9 +6,12 @@ format:
   html:
     toc: true
     self-contained: true
+    message: false
+    warning: false
 ---
 
 ```{r setup, echo=FALSE}
+
 knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
@@ -32,7 +35,7 @@ There could be several explanations:
 ## Peaks by eye
 
 Calling peaks programmatically is not straightforward, so I instead called them by eye.
-Below is a plot showing where they are, and a table with the details.
+Below is a plot showing where they are on a Manhattan plot for 398 F9 lines combined, and a table with the details.
 
 
 ```{r load-all-F9s}
@@ -92,8 +95,6 @@ ft12_peaks %>%
 ### Allele-frequency differences
 
 There is a large range of allele frequencies, but these do not really vary between cohorts.
-
-
 
 ```{r load-gemma}
 source("02_library/manhattan_plot.R")
@@ -167,7 +168,7 @@ A part from a few loci that are physically very close there is essentially no LD
 
 ```{r ld-heatmap}
 ld_cohort1 <- read_delim(
-  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort1_phased_imputed.ld",
+  "05_results/16_gemma_ft12/output/05_ld_between_top_SNPs/flowering_time_blups_rep1.ld",
   delim = "\t",
   col_types = c("iiciicd")
 ) %>% 
@@ -178,7 +179,7 @@ ld_cohort1 <- read_delim(
   )
 
 ld_cohort2 <- read_delim(
-  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort2_phased_imputed.ld",
+  "05_results/16_gemma_ft12/output/05_ld_between_top_SNPs/flowering_time_blups_rep2.ld",
   delim = "\t",
   col_types = c("iiciicd")
 ) %>% 
@@ -188,7 +189,7 @@ ld_cohort2 <- read_delim(
     cohort=2
   )
 
-ld_mat <- matrix(nrow = 43, ncol=43)
+ld_mat <- matrix(nrow = 33, ncol=33)
 snp_names <- unique(c(ld_cohort1$SNP_A, ld_cohort1$SNP_B))
 row.names(ld_mat) <- snp_names
 colnames(ld_mat) <- snp_names
@@ -251,7 +252,7 @@ import_gt <- function(file_path){
   gt <- read_tsv(file_path, show_col_types = FALSE)
   
   # Extract the names of SNPs and samples
-  snp <- paste0(gt$CHROM, "_", gt$POS)
+  snp <- paste0(gt$chr, "_", gt$pos)
   sample_names <- colnames(gt)[-1:-2]
   # Transpose, using only the data columns
   gt <- t(gt[,-1:-2])
@@ -268,19 +269,15 @@ import_gt <- function(file_path){
 
 
 genotypes_comb <- import_gt(
-  "05_results/16_gemma_ft12/output/top_SNPs/F8_phased_imputed_top_SNPS.tsv"
-) %>% 
-  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
+  "05_results/16_gemma_ft12/output/06_top_SNP_genotypes/flowering_time_blups_F9_combined_top_SNPS.tsv"
+)
 genotypes_cohort1 <- import_gt(
-  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort1_phased_imputed_top_SNPS.tsv"
-) %>% 
-  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
+  "05_results/16_gemma_ft12/output/06_top_SNP_genotypes/flowering_time_blups_rep1_top_SNPS.tsv"
+)
 
 genotypes_cohort2 <- import_gt(
-  "05_results/16_gemma_ft12/output/top_SNPs/F8_cohort2_phased_imputed_top_SNPS.tsv"
-) %>% 
-  dplyr::select(-Chr1_9583022, -Chr1_13127273, -Chr3_14767843)
-
+  "05_results/16_gemma_ft12/output/06_top_SNP_genotypes/flowering_time_blups_rep2_top_SNPS.tsv"
+)
 # I will remove SNPs Chr1_9583022, Chr1_13127273 and Chr3_14767843 becauce
 # they have a lot of missing data, which ruins the multiple regression.
 
@@ -377,7 +374,7 @@ n_all_terms <- str_count(step_call_str, coll("+")) + 1
 
 This is one of the rare cases where stepwise regression is useful.
 I used `stepAIC` to start from the model with only main effects and look for better fitting models, allowing up-to-pairwise interactions.
-The best fitting model retained all `r n_all_terms - n_interaction_terms` main terms, and included `r n_interaction_terms` interaction terms (of a possible total of (40*39)/2=780 pairwise interactions).
+The best fitting model retained all `r n_all_terms - n_interaction_terms` main terms, and included `r n_interaction_terms` interaction terms (of a possible total of (30*29)/2=435 pairwise interactions).
 AIC changed from `r AIC(m_fixef)` for the model with main effects only to `r AIC(m_stepwise)`, indicating that including the interaction terms lead to a massive improvement in model fit.
 
 ```{r epistatic-var-comp}
@@ -417,7 +414,7 @@ var_components <- VarCorr(m_ranef, comp="Variance") %>%
 ```
 
 Here is a histogram of variance explained by individual main, epistatic and residual terms.
-They are similar, except there is an excess of really small epistatic terms.
+They are similar, except there is an excess of really small epistatic terms, and one really big epistatic term.
 
 ```{r var-comp-hist}
 
@@ -434,7 +431,7 @@ ggplot(aes(x = pve, fill=effect)) +
   theme_bw()
 ```
 
-If you sum them up, main terms explain 64% of the variance, and interaction terms 22%.
+If you sum them up, main terms explain 29% of the variance, and interaction terms 64%(!).
 
 ```{r var-comp-pie-chart}
 var_components %>% 
@@ -504,23 +501,25 @@ for(i in 1:nrow(snp_effects)){
     sum()
 }
 
+# 
+# fluid_snps <- c(
+#   'Chr1_19949063','Chr2_16838159','Chr3_9356551','Chr4_216718',
+#   'Chr4_10316667','Chr5_7808811','Chr5_12245069'
+# )
 
-fluid_snps <- c(
-  'Chr1_19949063','Chr2_16838159','Chr3_9356551','Chr4_216718',
-  'Chr4_10316667','Chr5_7808811','Chr5_12245069'
-)
-
-snp_effects <- snp_effects %>%
-  mutate(
-    fluid_SNP = snp_name %in% fluid_snps
-  )
+# snp_effects <- snp_effects %>%
+#   mutate(
+#     fluid_SNP = snp_name %in% fluid_snps
+#   )
 
 kable(snp_effects)
 
 
 ```
 
-The same thing as a plot
+The same thing as a plot.
+You can see that loci either seem to have main *or* epistatic effects.
+Also, there are two loci on Chr5 with *really strong* epistatic effects that explain more than half of the data.
 
 ```{r plot-effects-by-locus, fig.width=15, fig.height=8}
 snp_effects %>% 
@@ -531,8 +530,8 @@ snp_effects %>%
   ) %>% 
   ggplot(aes(x=snp_name, y =PVE, colour = name, group=name)) +
   geom_line() +
-  geom_point(
-    data = . %>% filter(fluid_SNP), color = "red", size = 2) +
+  # geom_point(
+    # data = . %>% filter(fluid_SNP), color = "red", size = 2) +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust=1)

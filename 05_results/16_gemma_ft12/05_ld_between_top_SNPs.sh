@@ -11,7 +11,7 @@
 #SBATCH --job-name=05_ld_between_top_SNPs
 #SBATCH --output=05_results/16_gemma_ft12/slurm/%x-%a.out
 #SBATCH --error=05_results/16_gemma_ft12/slurm/%x-%a.err
-#SBATCH --mem=1GB
+#SBATCH --mem=4GB
 #SBATCH --qos=rapid
 #SBATCH --time=1:00:00
 #SBATCH --array=0-3
@@ -24,42 +24,50 @@ source setup.sh
 
 i=$SLURM_ARRAY_TASK_ID
 
+# Directory with flowering-time BLUPs
+pheno_file_array=(03_processing/06_process_phenotypes/output/flowering_time*tsv)
+phenotype_file=${pheno_file_array[$i]}
+pheno_basename=$(basename -s .tsv $phenotype_file)
+
 # VCF files for parents and F8s
-progeny_vcf=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
-parents_vcf=03_processing/05_imputation/output/parental_lines.vcf.gz
-cohort1_vcf=03_processing/05_imputation/output/F8_cohort1_phased_imputed.vcf.gz
-cohort2_vcf=03_processing/05_imputation/output/F8_cohort2_phased_imputed.vcf.gz
+progeny_vcf=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
+parents_vcf=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
 # Array of paths to VCF files.
 # It is really important that these are in the same order as the phenotype files!
-vcf_array=($progeny_vcf $parents_vcf $cohort1_vcf $cohort2_vcf)
+vcf_array=($progeny_vcf $parents_vcf $progeny_vcf $progeny_vcf)
 input_vcf=${vcf_array[$i]}
 
-
+# A hand-made list of markers that look like the tips of peaks
 snp_list=05_results/16_gemma_ft12/output/top_SNPs/candidate_peak_positions.csv
 
 
 # === Output files === #
 
 # Output directory for GEMMA results and temporary files.
-outdir=$scratchdir/16_gemma_ft12
+outdir=$scratchdir/16_gemma_ft12/05_ld_between_top_SNPs
 mkdir -p $outdir
 
-plink_prefix=$outdir/$(basename -s .vcf.gz $input_vcf)
+# Prefic for intermediate files from plink
+plink_prefix=$outdir/${pheno_basename}
 
 # Final LD file. This is tab-delimited
-ld_file=05_results/16_gemma_ft12/output/top_SNPs/$(basename -s .vcf.gz $input_vcf).ld
+mkdir -p 05_results/16_gemma_ft12/output/05_ld_between_top_SNPs
+ld_file=05_results/16_gemma_ft12/output/05_ld_between_top_SNPs/${pheno_basename}.ld
 
 
 # === Main ===
 
-# Filter SNPs and set SNP labels to match the CSV file (chr,ps)
+echo "Filtering individuals and markers to match those used in the GWAS."
 plink2 \
     --vcf $input_vcf \
     --set-all-var-ids '@,#' \
     --extract $snp_list \
     --make-bed \
+    --max-alleles 2 \
+    --keep $phenotype_file \
     --out $plink_prefix
-# Create a table of LD between all pairs
+
+echo "Creating a table of LD between all pairs."
 plink \
     --bfile $plink_prefix \
     --r2 inter-chr \
