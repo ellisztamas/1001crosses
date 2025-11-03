@@ -1,7 +1,12 @@
 ---
 title: "Quality control on imputed SNPs in the F8s"
 author: "Tom Ellis"
-format: html
+format: 
+  html:
+    toc: true
+    self-contained: true
+execution:
+  warning: false
 ---
 
 ```{r setup, include=FALSE}
@@ -10,112 +15,327 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 
 suppressPackageStartupMessages(library("tidyverse"))
+
+library(ggpubr)
 ```
 
-```{r}
+## Allele frequencies
+
+```{r load-frq}
 
 parents_frq <- read_tsv(
   "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.frq",
   show_col_types = FALSE,
   skip = 1,
   col_names = c("chr", "pos", "nalleles", "nchr", "p", "q")
-  )
+)
 
 progeny_frq <- read_tsv(
   "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.frq",
   show_col_types = FALSE,
   skip = 1,
   col_names = c("chr", "pos", "nalleles", "nchr", "p", "q")
-  )
+)
+```
 
+Allele frequencies look very similar between parents and F8s.
+
+```{r plot-frq}
+#| warning: false
+
+ggarrange(
+  parents_frq %>% 
+    ggplot(aes( x = p)) +
+    geom_histogram() +
+    labs(
+      title = "Parents",
+      x = "Allele frequency",
+      y = "Number of lines"
+    ),
+  
+  progeny_frq %>% 
+    ggplot(aes( x = p)) +
+    geom_histogram() +
+    labs(
+      title = "F8s",
+      x = "Allele frequency",
+      y = "Number of lines"
+    ),
+  ncol=2
+)
 
 ```
 
-```{r}
-progeny_frq %>% 
-  ggplot(aes( x = p)) +
-  geom_histogram()
+Allele frequencies are strongly correlated.
 
-parents_frq %>% 
-  ggplot(aes( x = p)) +
-  geom_histogram()
+```{r frq-scatter-plot}
 
-
-join_freq <- inner_join(
+inner_join(
   parents_frq, progeny_frq,
   by = c("chr", "pos"),
-  suffix = c("_parents", "_progeny")) 
-
-join_freq %>%
-  mutate(
-    p_diff = p_parents - p_progeny
-  ) %>% 
-  filter(p_diff > 0.1) %>% 
-  ggplot(aes(x = p_parents, y = p_diff)) +
-  geom_point()
-
-join_freq %>%
+  suffix = c("_parents", "_progeny")) %>% 
   ggplot(aes(x = p_parents, y = p_progeny)) +
-  geom_point()
-
-  
-```
-
-```{r}
-progeny_imiss <- read_tsv(
-  "03_processing/09_impute_haplotypes/output/12_summary_stats/parents",
-  show_col_types = FALSE
+  geom_point() +
+  labs(
+    x = "Allele frequency (parents)",
+    y = "Allele frequency (F8s)"
   )
 
-progeny_imiss %>% 
-  ggplot(aes(F_MISS)) +
-  geom_histogram()
+
 ```
 
 
+## Missing data
+
+### Per line
+
+```{r load-imiss}
+#| warning: false
+#| 
+parents_imiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.imiss",
+  show_col_types = FALSE
+)
+
+progeny_imiss <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.imiss",
+  show_col_types = FALSE
+)
+```
+
+Most parental lines show very few markers with missing data, with a handful of exceptions.
+F8s show a peak at around 20% missing data, and rather denser tail.
+The shift in peak is almost certainly due to the segments of genome that couldn't be assigned to either parent, and are taken from the low-coverage data.
+
+```{r plot-imiss}
+ggarrange(
+  parents_imiss %>% 
+    ggplot(aes(F_MISS)) +
+    geom_histogram() +
+    labs(
+      title = "Parents",
+      x = "Missing data per line",
+      y = "Number of lines"
+    ),
+  
+  progeny_imiss %>% 
+    ggplot(aes(F_MISS)) +
+    geom_histogram() +
+    labs(
+      title = "F8s",
+      x = "Missing data per line",
+      y = "Number of lines"
+    ),
+  ncol=2
+)
+
+```
+
+Here are the ten parental accessions with the most missing data.
+Not surprisingly 1435, 5835 and 6199 top the list by some distance - these are the accessions that I had to take from the RegMap panel, which only partially overlaps with the other data.
+6965 and 6043 are two other accessions I had previously noted as having fairly dubious data that don't really match their F8 progeny well.
+I should follow up on 8231 and 6092 as well.
+
 ```{r}
+parents_imiss %>%  
+  arrange(desc(F_MISS)) %>% 
+  select(INDV, F_MISS) %>% 
+  rename(
+    Accession = INDV,
+    Proportion_missing = F_MISS
+  ) %>% 
+  head(10)
+```
+
+Here are the twenty F8 lines with the most missing data.
+The three RegMap lines feature heavily as parents, but surprisingly the other dubious looking parent from the previous table do not.
+They also don't really match the lines I expect to be segregating.
+
+```{r}
+progeny_imiss %>%  
+  arrange(desc(F_MISS)) %>% 
+  select(INDV, F_MISS) %>% 
+  rename(
+    Accession = INDV,
+    Proportion_missing = F_MISS
+  ) %>% 
+  head(20)
+```
+
+### Per marker
+
+```{r load-lmiss}
 progeny_lmiss <- read_tsv(
   "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.lmiss",
   show_col_types = FALSE
-  )
+)
 
 parents_lmiss <- read_tsv(
   "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.lmiss",
   show_col_types = FALSE
-  )
+)
+```
 
-progeny_lmiss %>% 
-  ggplot(aes(F_MISS)) +
-  geom_histogram()
+
+```{r plot-lmiss}
+ggarrange(
+  parents_lmiss %>% 
+    ggplot(aes(F_MISS)) +
+    geom_histogram() +
+    labs(
+      title = "Parents",
+      x = "Missing data per marker",
+      y = "Number of markers"
+    ),
+  
+  progeny_lmiss %>% 
+    ggplot(aes(F_MISS)) +
+    geom_histogram() +
+    labs(
+      title = "F8s",
+      x = "Missing data per marker",
+      y = "Number of markers"
+    ),
+  ncol=2
+)
+
+```
+
+The histograms show the distribution of missingness across markers.
+The distributions look very similar between parents and offspring, except that F8s have an additional peak at one, where nothing could be called.
+
+```{r lmiss-scatter-plot}
 
 inner_join(
-  progeny_frq, progeny_lmiss, by=c("chr"="CHR", "pos"="POS")
+  parents_lmiss, progeny_lmiss,
+  by = c("CHR", "POS"),
+  suffix = c("_parents", "_progeny")
 ) %>% 
-  ggplot(aes(x=F_MISS, y = p)) +
-  geom_point()
-
+  ggplot(aes(x = F_MISS_parents, y = F_MISS_progeny)) +
+  geom_point() +
+  labs(
+    x = "Missingness per locus (parents)",
+    x = "Missingness per locus (F8s)"
+  ) + 
+  facet_grid(~ CHR)
 
 ```
+
+## Heterozygosity
+
+### Per line
 
 ```{r}
-progeny_imiss <- read_tsv(
-  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.imiss",
+parents_ihet <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.het",
   show_col_types = FALSE
+) %>% 
+  mutate(
+    homozygosity = `O(HOM)` / N_SITES
   )
 
-progeny_imiss %>% 
-  ggplot(aes(F_MISS)) +
-  geom_histogram()
+progeny_ihet <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.het",
+  show_col_types = FALSE
+) %>% 
+  mutate(
+    homozygosity = `O(HOM)` / N_SITES
+  )
 ```
+
+Very few lines have many heteozygous calls.
+
+```{r plot-ihet}
+ggarrange(
+  parents_ihet %>% 
+    ggplot(aes(homozygosity)) +
+    geom_histogram() +
+    labs(
+      title = "Parents",
+      x = "Homozygosity per line",
+      y = "Number of lines"
+    ),
+  
+  progeny_ihet %>% 
+    ggplot(aes(homozygosity)) +
+    geom_histogram() +
+    labs(
+      title = "F8s",
+      x = "Homozygosity per line",
+      y = "Number of lines"
+    ),
+  ncol=2
+)  
+```
+
+Here are the parental lines with the most heterozygosity.
+They include the lines that I resequenced (1137 and 1074) that likely have less coverage than other parents, as well as known segregating lines.
 
 ```{r}
-progeny_idepth <- read_tsv(
-  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.idepth",
-  show_col_types = FALSE
-  )
-
-progeny_idepth %>% 
-  ggplot(aes(MEAN_DEPTH)) +
-  geom_histogram()
+parents_ihet %>% 
+  arrange(homozygosity)
 ```
+
+Here are the most heterozygous F8 lines, for completeness.
+They include 1435, which had to be taken from the RegMap panel, but not 6199 or 5835.
+
+```{r}
+progeny_ihet %>% 
+  arrange(homozygosity)
+```
+
+
+### Per marker
+
+```{r load-lhet}
+parents_lhet <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/parental_lines.lhet",
+  show_col_types = FALSE
+)
+
+progeny_lhet <- read_tsv(
+  "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.lhet",
+  show_col_types = FALSE
+)
+```
+
+```{r plot-lhet}
+
+ggarrange(
+  parents_lhet %>% 
+    ggplot(aes(het_rate)) +
+    geom_histogram() +
+    labs(
+      title = "Parents",
+      x = "Heterozygosity per marker",
+      y = "Number of markers"
+    ),
+  
+  progeny_lhet %>% 
+    ggplot(aes(het_rate)) +
+    geom_histogram() +
+    labs(
+      title = "F8s",
+      x = "Heterozygosity per marker",
+      y = "Number of markers"
+    ),
+  ncol=2
+)
+
+
+
+```
+
+<!-- ## Sequencing depth -->
+
+<!-- ```{r} -->
+<!-- progeny_idepth <- read_tsv( -->
+<!--   "03_processing/09_impute_haplotypes/output/12_summary_stats/F8_imputed.idepth", -->
+<!--   show_col_types = FALSE -->
+<!-- ) -->
+
+<!-- progeny_idepth %>%  -->
+<!--   ggplot(aes(MEAN_DEPTH)) + -->
+<!--   geom_histogram() -->
+<!-- ``` -->
 

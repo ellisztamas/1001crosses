@@ -70,43 +70,43 @@ line_names=$outdir/parental_line_names.txt
 
 # === Main ===
 
-# # This excludes 1435, 6199 and 5835, which we will get from the RegMap panel
-# echo "Extracting the unique parents from the main VCF file."
-# cut -f3,4 $sample_sheet | \tr '\t' '\n' | sort -u |
-#     grep -v "1435\|5835\|6199" \
-#      > $list_of_most_parents
-# bcftools view \
-#     -S $list_of_most_parents \
-#     -O z \
-#     -o $most_parents \
-#     $g1163
-# tabix $most_parents
+# This excludes 1435, 6199 and 5835, which we will get from the RegMap panel
+echo "Extracting the unique parents from the main VCF file."
+cut -f3,4 $sample_sheet | \tr '\t' '\n' | sort -u |
+    grep -v "1435\|5835\|6199" \
+     > $list_of_most_parents
+bcftools view \
+    -S $list_of_most_parents \
+    -O z \
+    -o $most_parents \
+    $g1163
+tabix $most_parents
 
-# echo "Extracting three accessions that were likely incorrect or missing in the 1001genomes dataset."
-# bcftools view \
-#     -s 1435,5835,6199 \
-#     -O z \
-#     -o $incorrect_parents \
-#     $regmap
-# tabix $incorrect_parents
+echo "Extracting three accessions that were likely incorrect or missing in the 1001genomes dataset."
+bcftools view \
+    -s 1435,5835,6199 \
+    -O z \
+    -o $incorrect_parents \
+    $regmap
+tabix $incorrect_parents
 
-# echo "Extracting two accessions that were missing entirely and we sequenced de novo."
-# bcftools view \
-#     -s 1137,1074 \
-#     -O z \
-#     -o $missing_parents \
-#     $resequenced
-# tabix $missing_parents
+echo "Extracting two accessions that were missing entirely and we sequenced de novo."
+bcftools view \
+    -s 1137,1074 \
+    -O z \
+    -o $missing_parents \
+    $resequenced
+tabix $missing_parents
 
-# # Merge the three VCF files into a single VCF file
-# # Keep only biallelic SNPs
-# # This will be used as a reference panel for the Beagle imputation
-# echo "Merging the three VCF files into a single VCF file."
-# bcftools merge \
-#     -O z \
-#     -o $merged_vcf \
-#     $most_parents $incorrect_parents $missing_parents
-# tabix $merged_vcf
+# Merge the three VCF files into a single VCF file
+# Keep only biallelic SNPs
+# This will be used as a reference panel for the Beagle imputation
+echo "Merging the three VCF files into a single VCF file."
+bcftools merge \
+    -O z \
+    -o $merged_vcf \
+    $most_parents $incorrect_parents $missing_parents
+tabix $merged_vcf
 
 echo "Filtering for biallelic SNPs in genes."
 bcftools view \
