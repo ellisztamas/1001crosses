@@ -1,0 +1,593 @@
+---
+title: "GWAS statistics: seed size"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    self-contained: true
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+library(knitr)
+library(ggpointdensity)
+```
+
+
+```{r load-gemma}
+source("02_library/manhattan_plot.R")
+
+
+# Vector of GEMMA output files.
+noK_output_paths <- Sys.glob(
+  "05_results/07_gemma_seed_size/output/no_K/*.assoc.txt"
+)
+# Drop the file with all F9s combined.
+noK_output_paths <- grep(
+  "F9_combined", noK_output_paths,
+  invert = TRUE, value = TRUE
+)
+
+
+noK <- vector("list", length=length(noK_output_paths))
+names(noK) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+
+for(f in 1:length(noK)){
+  gemma_file <- read_tsv(
+    noK_output_paths[f],
+    # n_max = 1000,
+    col_types = 'iciiiccnnnnnn'
+  ) %>%
+    mutate(
+      log10p = -log10(p_lrt),
+      varexp = beta^2 * af * (1-af)
+    )
+  
+  noK[[f]] <- gemma_file
+  
+}
+
+# Merge the result files
+merge_gwas <- inner_join(
+  noK$Parents, noK$F9_cohort_1,
+  by = c("chr", "ps"),
+  suffix = c("_parents", "")
+) %>%
+  inner_join(
+    noK$F9_cohort_2,
+    by = c("chr", "ps"),
+    suffix = c("_cohort1", "_cohort2")
+  ) %>% 
+  mutate(
+    SNP = paste0(chr, "_", ps)
+  )
+```
+
+# Comparing cohorts
+
+## Manhattan plots
+
+The following three plots show GWAS for seed size without a relatedness matrix for the parents and two cohorts of F9s.
+
+```{r mh-noK, fig.height=5, fig.width=15}
+#| warning: false
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_parents",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "Parents"
+)
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_cohort1",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "F9 cohort 1"
+)
+
+qqman::manhattan(
+  merge_gwas, chr = "chr", bp="ps", p="p_lrt_cohort2",
+  genomewideline = FALSE,
+  suggestiveline = FALSE,
+  main  = "F9 cohort 2"
+)
+```
+
+## P-values
+
+The plot below shows p-values for GWAS for seed size without a K matrix, comparing parents to two cohorts of F9 plants.
+P values are correlated roughly as well (or poorly) between generations, as between F9 cohorts.    
+
+```{r cohort-pvals, fig.width=10}
+
+# Spearman rank correlations for p-value distributions
+pval_correlations <- c(
+  cor(merge_gwas$log10p_parents, merge_gwas$log10p_cohort1, method='s'),
+  cor(merge_gwas$log10p_parents, merge_gwas$log10p_cohort2, method='s'),
+  cor(merge_gwas$log10p_cohort1, merge_gwas$log10p_cohort2, method='s')
+)
+pval_correlations <- sapply(pval_correlations, round, 3)
+
+
+ggpubr::ggarrange(
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_parents, y=log10p_cohort1 )) +
+    geom_pointdensity(method="kde2d")+
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F9 cohort 1)",
+      title = "Parents vs F9 cohort 1",
+      subtitle = paste("\u03c1 = ", pval_correlations[1])
+    ),
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_parents, y=log10p_cohort2 )) +
+    geom_pointdensity()+
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      x = "-log10 p (parents)",
+      y = "-log10 p (F9 cohort 2)",
+      title = "Parents vs F9 cohort 2",
+      subtitle = paste("\u03c1 = ", pval_correlations[2])
+    ),
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_cohort1, y=log10p_cohort2 )) +
+    geom_pointdensity()+
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      x = "-log10 p (F9 cohort 1)",
+      y = "-log10 p (F9 cohort 2)",
+      title = "Cohorts 1 and 2",
+      subtitle = paste("\u03c1 = ", pval_correlations[3])
+    ),
+  
+  nrow=1, ncol=3, common.legend = TRUE
+)
+
+```
+
+
+```{r qqplot-functions}
+# Function to create GWAS QQ plot
+qqplot_gwas <- function(pvalues, main="QQ Plot for GWAS", ...) {
+  # Remove NAs
+  pvalues <- na.omit(pvalues)
+  
+  # Calculate observed and expected values
+  observed <- -log10(sort(pvalues))
+  expected <- -log10(ppoints(length(pvalues)))
+  
+  # Calculate confidence intervals (optional)
+  n <- length(pvalues)
+  conf <- 0.95  # 95% confidence interval
+  df <- data.frame(
+    observed = observed,
+    expected = expected,
+    clower = qbeta(0.025, 1:n, n - 1:n + 1),
+    cupper = qbeta(0.975, 1:n, n - 1:n + 1)
+  )
+  
+  # Create plot using ggplot2
+  library(ggplot2)
+  
+  ggplot(df, aes(x=expected, y=observed)) +
+    # Add confidence interval
+    geom_ribbon(aes(ymin=-log10(clower), ymax=-log10(cupper)), 
+                fill="grey80", alpha=0.5) +
+    # Add reference line
+    geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
+    # Add observed points
+    geom_point() +
+    # Labels and theme
+    labs(x=expression(Expected~~-log[10](p)), 
+         y=expression(Observed~~-log[10](p)),
+         title=main) +
+    theme_bw()
+}
+
+# For multiple GWAS studies/conditions:
+qq_plot_multiple <- function(pvalue_list, labels, colors, main="") {
+  # Create data frame for plotting
+  plot_data <- data.frame()
+  
+  for(i in 1:length(pvalue_list)) {
+    pvals <- na.omit(pvalue_list[[i]])
+    observed <- -log10(sort(pvals))
+    expected <- -log10(ppoints(length(pvals)))
+    
+    plot_data <- rbind(plot_data, 
+                       data.frame(expected = expected,
+                                  observed = observed,
+                                  group = labels[i]))
+  }
+  
+  # Create plot
+  ggplot(plot_data, aes(x=expected, y=observed, color=group)) +
+    geom_abline(intercept=0, slope=1, color="red", linetype="dashed") +
+    geom_point(alpha=0.7) +
+    scale_color_manual(values=colors) +
+    labs(x=expression(Expected~~-log[10](p)), 
+         y=expression(Observed~~-log[10](p)),
+         title=main) +
+    theme_bw() +
+    theme(legend.title=element_blank())
+}
+```
+
+QQ plots look *substantially* less inflated, much more so than did the QQ plots for flowering time.
+
+```{r cohort-qqplot}
+# For multiple studies/conditions:
+pvalue_list <- list(
+  parents = merge_gwas$p_lrt_parents,
+  cohort1 = merge_gwas$p_lrt_cohort1,
+  cohort2 = merge_gwas$p_lrt_cohort2
+)
+
+labels <- c("Parents", "F9 cohort 1", "F9 cohort 2")
+colors <- c("#1b9e77", "#d95f02", "#7570b3")  # ColorBrewer palette
+
+qq_plot_multiple(pvalue_list, labels, colors)
+```
+
+In fact $\lambda$ values are quite different, and even the F9s are really inflated:
+
+- 10.012 for the parents
+- 3.424 for cohort 1
+- 4.220 for cohort 2
+
+The plot below shows ordered p-values for the parents against both cohorts of F9s.
+They're well under the diagonal, and there's a step in the same place.
+
+```{r qq-between-groups}
+merge_gwas %>% 
+  mutate(
+    parents = sort(log10p_parents),
+    cohort1 = sort(log10p_cohort1),
+    cohort2 = sort(log10p_cohort2)
+  ) %>% 
+  select(parents, cohort1, cohort2) %>% 
+  pivot_longer(cohort1 : cohort2) %>% 
+  ggplot(aes(x = parents, y = value, colour=name))+
+  geom_point() +
+  geom_abline(colour='red') +
+  labs(
+    x = "log10 p (parents)",
+    y = "log10 p  (F9s)",
+    title = "QQ plot of parents against F9s"
+  ) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank()
+  )
+```
+
+
+## Effect sizes
+
+The plot below shows effect sizes for of SNPs estimated by GEMMA without a K matrix for seed size, comparing parents to two cohorts of F9 plants.
+These effects sizes are even more strongly correlated than were p-values.
+
+```{r cohort-betas, fig.width=15}
+# Spearman rank correlations for effect-size distributions
+beta_correlations <- c(
+  cor(merge_gwas$beta_parents, merge_gwas$beta_cohort1, method='s'),
+  cor(merge_gwas$beta_parents, merge_gwas$beta_cohort2, method='s'),
+  cor(merge_gwas$beta_cohort1, merge_gwas$beta_cohort2, method='s')
+)
+beta_correlations <- sapply(beta_correlations, round, 3)
+
+
+
+ggpubr::ggarrange(
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_parents, y=beta_cohort1 )) +
+    geom_pointdensity()+
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      x = "SNP effect (parents)",
+      y = "SNP effect (F9 cohort 1)",
+      title = "Parents vs F9 cohort 1",
+      subtitle = paste("\u03c1 = ", beta_correlations[1])
+    ),
+  
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_parents, y=beta_cohort2 )) +
+    geom_pointdensity()+
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      x = "SNP effect (parents)",
+      y = "SNP effect (F9 cohort 2)",
+      title = "Parents vs F9 cohort 2",
+      subtitle = paste("\u03c1 = ", beta_correlations[2])
+    ),
+  
+  merge_gwas %>%
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_cohort1, y=beta_cohort2 )) +
+    geom_pointdensity()+
+    geom_abline(colour='red') +
+    guides(colour="none") +
+    labs(
+      x = "SNP effect (F9 cohort 1)",
+      y = "SNP effect (F9 cohort 2)",
+      title = "Cohorts 1 and 2",
+      subtitle = paste("\u03c1 = ", beta_correlations[3])
+    ),
+  
+  nrow=1, ncol=3, common.legend = TRUE
+)
+```
+
+The spread in effect sizes is a little higher for the parents than the F8s.
+
+```{r boxplot-beta}
+beta_summary_stats <- tibble(
+  cohort = c("Parents", "F9 cohort 1", "F9 cohort 2"),
+  mean = c(
+    mean(merge_gwas$beta_parents),
+    mean(merge_gwas$beta_cohort1),
+    mean(merge_gwas$beta_cohort2)
+  ),
+  st_deviation = c(
+    sd(merge_gwas$beta_parents),
+    sd(merge_gwas$beta_cohort1),
+    sd(merge_gwas$beta_cohort2)
+  )
+)
+
+
+merge_gwas %>% 
+  select(beta_parents, beta_cohort1, beta_cohort2) %>% 
+  rename(
+    Parents = beta_parents,
+    `F9 cohort 1` = beta_cohort1,
+    `F9 cohort 2` = beta_cohort2
+  ) %>% 
+  pivot_longer(Parents:`F9 cohort 2`, values_to = "Effect size") %>% 
+  mutate(
+    name = factor(
+      name,
+      levels = c("Parents", "F9 cohort 1", "F9 cohort 2")
+    )
+  ) %>% 
+  ggplot(aes(x= name, y = `Effect size`)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+```
+
+# With and without population structure control
+
+```{r load-withK}
+# Vector of GEMMA output files.
+withK_output_paths <- Sys.glob(
+  "05_results/07_gemma_seed_size/output/with_K/*.assoc.txt"
+)
+# Drop the file with all F9s combined.
+withK_output_paths <- grep(
+  "F9_combined", withK_output_paths,
+  invert = TRUE, value = TRUE
+)
+
+
+withK <- vector("list", length=length(withK_output_paths))
+names(withK) <- c("Parents", "F9_cohort_1", "F9_cohort_2")
+
+for(f in 1:length(withK)){
+  gemma_file <- read_tsv(
+    withK_output_paths[f],
+    # n_max = 1000,
+    col_types = 'iciiccnnnnnnnnn'
+  ) %>%
+    mutate(
+      SNP = paste0(chr, "_", ps),
+      log10p = -log10(p_lrt),
+      varexp = beta^2 * af * (1-af)
+    )
+  
+  withK[[f]] <- gemma_file
+  
+}
+
+```
+
+## Manhattan plots
+
+Here are Manhattan plots for GWAS on the same data, but this time including a kinship matrix.
+The peaks are modest, and anything but consistent between cohorts.
+
+
+```{r mh-withK, fig.height=5, fig.width=15}
+#| warning: false
+
+
+qqman::manhattan(
+  withK$Parents, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$Parents)),
+  main  = "Parents"
+)
+
+qqman::manhattan(
+  withK$F9_cohort_1, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$F9_cohort_1)),
+  main  = "F9 cohort 1"
+)
+
+qqman::manhattan(
+  withK$F9_cohort_2, chr = "chr", bp="ps", p="p_lrt",
+  genomewideline = -log10(0.05/nrow(withK$F9_cohort_2)),
+  main  = "F9 cohort 2"
+)
+```
+
+## P-values
+
+Comparing p-values for analyses with and without a kinship matrix.
+
+```{r pvals-with-without-K, fig.width=10}
+
+
+merge_parents <- inner_join(
+  noK$Parents, withK$Parents,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+merge_cohort1 <- inner_join(
+  noK$F9_cohort_1, withK$F9_cohort_1,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+merge_cohort2 <- inner_join(
+  noK$F9_cohort_2, withK$F9_cohort_2,
+  by=c('chr', 'ps'),
+  suffix = c("_noK", "_withK")
+)
+
+
+# Spearman rank correlations for p-value distributions
+pval_correlations <- c(
+  cor(merge_parents$log10p_noK, merge_parents$log10p_withK, method='s'),
+  cor(merge_cohort1$log10p_noK, merge_cohort1$log10p_withK, method='s'),
+  cor(merge_cohort2$log10p_noK, merge_cohort2$log10p_withK, method='s')
+)
+pval_correlations <- sapply(pval_correlations, round, 3)
+
+
+
+ggarrange(
+  merge_parents %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "Parents",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[1])
+    ) +
+    theme_bw(),
+  
+  merge_cohort1 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 1",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[2])
+    ) +
+    theme_bw(),
+  
+  
+  merge_cohort2 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = log10p_noK, y = log10p_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 2",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", pval_correlations[3])
+    ) +
+    guides(colour='none') +
+    theme_bw(),
+  nrow=1, ncol = 3, legend='none'
+)
+
+```
+
+## Effect sizes
+
+Effect-size estimate with and without a kinship matrix.
+Effects are compressed in the latter.
+This is particularly striking in the parents, because it looks like there are two clusters of points to the left and right of the diagonal.
+These are presumably SNPs that are associated with structure and/or the trait, and are in LD.
+The kinship matrix removes that LD.
+
+```{r beta-with-without-K, fig.width=10}
+
+# Spearman rank correlations for effect sizes
+beta_correlations <- c(
+  cor(merge_parents$beta_noK, merge_parents$beta_withK, method='s'),
+  cor(merge_cohort1$beta_noK, merge_cohort1$beta_withK, method='s'),
+  cor(merge_cohort2$beta_noK, merge_cohort2$beta_withK, method='s')
+)
+beta_correlations <- sapply(beta_correlations, round, 3)
+
+
+
+ggarrange(
+  
+  merge_parents %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "Parents",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[1])
+    ) +
+    theme_bw(),
+  
+  merge_cohort1 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 1",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[2])
+    ) +
+    theme_bw(),
+  
+  merge_cohort2 %>% 
+    slice(seq(1,nrow(.), 10)) %>% 
+    ggplot(aes(x = beta_noK, y = beta_withK)) +
+    geom_pointdensity() +
+    guides(colour="none") +
+    geom_abline(colour='red') +
+    labs(
+      title = "F9 cohort 2",
+      x = "Without structure correction",
+      y = "With structure correction",
+      subtitle = paste("\u03c1 = ", beta_correlations[3])
+    ) +
+    theme_bw(),
+  nrow=1, ncol = 3, common.legend = TRUE, legend='none'
+)
+
+
+```
