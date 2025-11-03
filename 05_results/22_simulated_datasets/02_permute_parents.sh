@@ -28,7 +28,7 @@ source setup.sh
 i=${SLURM_ARRAY_TASK_ID}
 
 # VCF file to be permuted
-in_vcf='03_processing/05_imputation/output/parental_lines.vcf.gz'
+in_vcf='03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz'
 
 
 # === Output ===

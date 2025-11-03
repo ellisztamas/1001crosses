@@ -28,7 +28,7 @@ indir=${dir_array[$i]}
 # File with resampled F9 phenotypes
 phenotype_file=${indir}/phenotypes.tsv
 # VCF files all F8s
-input_vcf=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
+input_vcf=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
 
 
 # === Output files === #

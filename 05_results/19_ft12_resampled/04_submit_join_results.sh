@@ -5,7 +5,7 @@
 # Tom Ellis, 23rd June 2025
 
 # SLURM
-#SBATCH --job-name=merge_gemma_results
+#SBATCH --job-name=04_merge_gemma_results
 #SBATCH --output=05_results/19_ft12_resampled/slurm/%x.out
 #SBATCH --error=05_results/19_ft12_resampled/slurm/%x.err
 #SBATCH --mem=20GB

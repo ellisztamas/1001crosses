@@ -31,9 +31,9 @@ phenotype_file=${phenotype_file_array[$i]}
 # Array of paths to VCF files.
 # For permuted datasets there is only a directory path - the file names will be
 # added later
-genotype_array=(03_processing/05_imputation/output/parental_lines.vcf.gz
-    03_processing/05_imputation/output/F8_cohort1_phased_imputed.vcf.gz
-    03_processing/05_imputation/output/F8_cohort2_phased_imputed.vcf.gz
+genotype_array=(03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
+    03_processing/09_impute_haplotypes/output/F8_cohort1_phased_imputed.vcf.gz
+    03_processing/09_impute_haplotypes/output/F8_cohort2_phased_imputed.vcf.gz
     ${scratchdir}/22_simulated_datasets/02_permute_parents
     )
 

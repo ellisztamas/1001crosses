@@ -24,10 +24,10 @@ source setup.sh
 
 # VCF files
 # Parents
-parents_vcf='03_processing/05_imputation/output/parental_lines.vcf.gz'
+parents_vcf='03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz'
 # Two cohorts of F8s
-cohort1_vcf='03_processing/05_imputation/output/F8_cohort1_phased_imputed.vcf.gz'
-cohort2_vcf='03_processing/05_imputation/output/F8_cohort2_phased_imputed.vcf.gz'
+cohort1_vcf='03_processing/09_impute_haplotypes/output/F8_cohort1_phased_imputed.vcf.gz'
+cohort2_vcf='03_processing/09_impute_haplotypes/output/F8_cohort2_phased_imputed.vcf.gz'
 
 
 # === Output ===

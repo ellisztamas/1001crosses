@@ -22,8 +22,8 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # VCF files for parents and F8s
-parents=03_processing/05_imputation/output/parental_lines.vcf.gz
-progeny=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
+parents=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
+progeny=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
 # Make a Bash array of the three VCF files
 vcf_files=($parents $progeny)
 # File to use in this job

@@ -27,8 +27,8 @@ pheno_file_array=(03_processing/06_process_phenotypes/output/*tsv)
 phenotype_file=${pheno_file_array[$i]}
 
 # HDF5 files for parents and F8s
-parents_hdf5=03_processing/05_imputation/output/parental_lines.hdf5
-progeny_hdf5=03_processing/05_imputation/output/F8_phased_imputed.hdf5
+parents_hdf5=03_processing/09_impute_haplotypes/output/parental_lines.hdf5
+progeny_hdf5=03_processing/09_impute_haplotypes/output/F8_imputed.hdf5
 # Array of paths to VCF files.
 # It is really important that these are in the same order as the phenotype files!
 hdf5_array=($progeny_hdf5 $parents_hdf5 $progeny_hdf5 $progeny_hdf5)
