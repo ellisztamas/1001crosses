@@ -1,0 +1,360 @@
+---
+title: "Seed-size QTL in North-South crosses"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    self-contained: true
+    message: false
+    warning: false
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library(tidyverse))
+library(ggpubr)
+library(knitr)
+```
+
+
+```{r load-gemma}
+source("02_library/manhattan_plot.R")
+
+outdir <- "05_results/23_admixed_only_GWAS/output"
+
+assoc_file_paths <- list(
+  NxS1_noK   = paste0(outdir, "/02_run_gwas/no_K/seed_size_blups_NxS1.assoc.txt"),
+  NxS1_withK = paste0(outdir, "/02_run_gwas/with_K/seed_size_blups_NxS1.assoc.txt"),
+  cond_noK   = paste0(outdir, "/03_seed_size_conditional_GWAS/no_K/seed_size_blups_NxS1.assoc.txt"),
+  pc1        = paste0(outdir, "/07_condition_on_PC1/no_K/seed_size_blups_NxS1.assoc.txt"),
+  no_groensvik = paste0(outdir,
+  "/04_seed_size_no_Groensvik/no_K/seed_size_blups_NxS1_subset.assoc.txt")
+)
+
+
+assoc_data <- vector('list', length(assoc_file_paths))
+names(assoc_data) <- names(assoc_file_paths)
+
+for(f in 1:length(assoc_data)){
+  assoc_data[[f]] <- read_tsv(
+    assoc_file_paths[[f]],
+    # n_max = 1000,
+    col_types = 'iciiiccnnnnnn'
+  ) %>%
+    mutate(
+      log10p = -log10(p_lrt)
+      # varexp = beta^2 * af * (1-af)
+    )
+}
+
+assoc_data$kruskall_wallis <- read_tsv(
+  paste0(outdir,"/08_kruskall_wallis_gwas/seed_size_blups_NxS1_results.tsv"),
+  col_types = 'cinn'
+)  %>% 
+  mutate(
+    rs = paste0(chr, "_", "ps"),
+    chr = as.numeric(gsub("Chr", "", chr))
+  )
+  
+
+```
+
+Using only offspring derived from crosses between N and S1 parents returns peaks on chromosomes 3 and 5.
+
+* Chr3:10991117
+* Chr5:16207115-16248614 (you can't see, but it's a plateau)
+* Chr5:20095638
+
+Including lines with NxS2 parentage returns a very similar result, except the peak on Chr 3 is not there.
+
+```{r gwas-noK}
+qqman::manhattan(
+  assoc_data$NxS1_noK,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size; No kinship correction"
+)
+```
+
+The Manhattan plot looks almost identical with and without the inclusion of a relatedness matrix.
+That is consistent with this subset having very little confounding with LD.
+
+```{r gwas-withK}
+qqman::manhattan(
+  assoc_data$NxS1_withK,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size; with kinship correction"
+)
+```
+
+Lines with the reference allele at Chr5:16207115 have larger seeds.
+Line 1435x6240_rep1 is especially large, but comes with the caveat that line 1435 is from the RegMap panel and has somewhat dubious genotype data.
+
+```{r}
+pheno <- cbind(
+  read_tsv(
+    "05_results/23_admixed_only_GWAS/output/01_subset_lines/seed_size_blups_NxS1.tsv",
+    col_names = c("FID", "line", "blup"),
+    col_types = 'ccn'
+  ),
+  
+  read_delim(
+    "05_results/23_admixed_only_GWAS/output/03_seed_size_conditional_GWAS/tmp/seed_size_blups_NxS1_covariate.txt",
+    delim = ' ',
+    col_names = c('int', "geno"),
+    col_select = "geno"
+  )
+)
+
+pheno %>% 
+  ggplot(aes(x = blup)) +
+  geom_histogram()
+
+
+pheno %>% 
+  ggplot(aes(x = as.factor(geno), y = blup)) +
+  geom_boxplot() +
+  labs(
+    x = "Genotype (N. alt alleles)",
+    y = "Seed size (BLUP)"
+  ) +
+  theme_bw()
+
+
+```
+
+Here are the names of the lines with the alternative alleles at this position.
+
+```{r}
+pheno %>% 
+  filter(geno == 0) %>% 
+  select(line, blup, geno) %>% 
+  kable()
+```
+
+The Northern parents in these crosses are 1435, 6030, 6220 and 9388.
+The crosses all have the Northern parent's haplotype at the QTL.
+Interestingly, all four of these lines are from the Grönsvik peninsula in the High Coast, which is precisly where the Swedish parent of Ågren and Schemske's RILs are from and where they (we) did their experiments.
+
+Here is a heatmap with rows (lines) clustered by haplotype similarity.
+The lines with the associated allele are the blue stripe about three quarter's of the way down.
+These lines seem to have the reference allele at almost every SNP in the region, and look quite different from everyone else.
+
+```{r}
+qtl_region <- read_csv(
+  "05_results/23_admixed_only_GWAS/output/05_extract_QTL_region/Chr5_QTL_region.txt",
+  show_col_types = FALSE
+)
+
+# Step 1: Convert to matrix for clustering
+
+mat <- qtl_region %>%
+  pivot_longer(-snp) %>%
+  pivot_wider(names_from = snp, values_from = value) %>%
+  tibble::column_to_rownames(var = 'name') %>%
+  as.matrix()
+
+# Step 2: Perform hierarchical clustering on rows
+row_dist <- dist(mat, method = "euclidean")  # or "manhattan", "maximum", etc.
+row_hclust <- hclust(row_dist, method = "complete")  # or "average", "ward.D2", etc.
+
+# Get the row order from clustering
+row_order <- rownames(mat)[row_hclust$order]
+
+qtl_region %>% 
+  pivot_longer(
+    cols = -snp,
+    names_to = "line",
+    values_to = "genotype"
+  ) %>% 
+  left_join(pheno, by ='line') %>% 
+  mutate(
+    line = factor(line, levels=row_order)
+  ) %>% 
+  filter(line %in% row_order[1:100]) %>%
+  droplevels() %>%
+  ggplot(aes(y = line, x = snp, fill = genotype)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", midpoint = 1) +
+    labs(x = NULL, y = NULL, fill = "Value") +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1),
+      panel.grid = element_blank()
+    )
+
+```
+
+This plot shows a heatmap of haplotypes in the associated region, sorted in descending order of seed size.
+The top three haplotypes are from Grönsvik, and there are some more further down.
+There is nothing that leaps out at me as being associated with seed size.
+
+```{r}
+
+
+qtl_region %>% 
+  pivot_longer(
+    cols = -snp,
+    names_to = "line",
+    values_to = "genotype"
+  ) %>% 
+  left_join(pheno, by ='line') %>%
+  mutate(
+    line = factor(line),
+    line = fct_reorder(line, blup)
+  ) %>% 
+  ggplot(aes(y = line, x = snp, fill = genotype)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", midpoint = 1) +
+    labs(x = NULL, y = NULL, fill = "Value") +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 1),
+      panel.grid = element_blank()
+    )
+
+```
+
+## Who else has the haplotype?
+
+There are five additional crossed lines that also have the same haplotype, but were not among the 107 lines with Northern and S1 ancestry.
+
+```{r, include=TRUE}
+# Lines included in the 107
+expected_lines  <- c("6020x6030_rep1","6020x6030_rep2","6220x9399_rep1", '6220x9399_rep2', '1435x6240_rep1')
+# Lines with the same haplotype, not in the 107
+predicted_lines <- c("6140x9388_rep1", "1063x1435_rep2", "6125_6099_rep1", "6125_6099_rep2", "6243x6180_rep2")
+```
+
+If the association on Chr5 is real, we would expect these lines to also have elevated seed size relative to the rest of the collection.
+The plot below shows seed size for lines in the 107 with the associated haplotypes (`expected`), not in the 107 but having the haplotype (`predicted`), and the 400 other lines.
+The `predicted` set seem to be a random draw from the sample.
+
+```{r}
+read_tsv(
+  "03_processing/06_process_phenotypes/output/seed_size_blups_F9_combined.tsv",
+  show_col_types = FALSE,
+  col_names = c("FID", "line", "blup")
+) %>% 
+  mutate(
+    type = case_when(
+      line %in% expected_lines ~ "expected",
+      line %in% predicted_lines ~ "predicted",
+      .default = "Everyone else"
+    )
+  ) %>% 
+  ggplot(aes(y = blup, x = type)) + 
+  geom_boxplot()+
+  labs(
+    title = "F9s",
+    y = "Seed size (BLUP)"
+  )
+```
+
+If the association is real we would also expect parental lines with the Grönsvik haplotype to have larger seeds.
+There are six parental lines with the haplotype, three of which didn't have any offspring in the 107 lines.
+Note that none of the extra lines come from Grönsvik.
+
+```{r, include=TRUE}
+predicted_lines <- c("1435",'6180','6099','5835','6030',"6220")
+```
+
+These lines have slightly larger seeds than the 213 other lines, but the difference is not large.
+
+```{r}
+read_tsv(
+  "03_processing/06_process_phenotypes/output/seed_size_blups_parents.tsv",
+  show_col_types = FALSE,
+  col_names = c("FID", "line", "blup")
+) %>% 
+  mutate(
+    type = case_when(
+      line %in% predicted_lines ~ "predicted",
+      .default = "Everyone else"
+    )
+  ) %>% 
+  ggplot(aes(y = blup, x = type)) + 
+  geom_boxplot() +
+  labs (
+    title = "Parental lines",
+    y = "Seed size (BLUP)"
+  )
+
+# read_tsv(
+#   "03_processing/06_process_phenotypes/output/seed_size_blups_parents.tsv",
+#   show_col_types = FALSE,
+#   col_names = c("FID", "line", "blup")
+# ) %>% 
+#   mutate(
+#     type = case_when(
+#       line %in% predicted_lines ~ "predicted",
+#       .default = "other"
+#     )
+#   ) %>% 
+#   group_by(type) %>% 
+#   summarise(mean = mean(blup))
+```
+
+Here are the actual values for the six lines with the Grönsvik haplotypes.
+
+```{r}
+read_tsv(
+  "03_processing/06_process_phenotypes/output/seed_size_blups_parents.tsv",
+  show_col_types = FALSE,
+  col_names = c("FID", "line", "blup")
+) %>% 
+  filter(line %in% predicted_lines) %>% 
+  select(line, blup) %>% 
+  kable()
+```
+
+## Follow-up GWAS
+
+The following plot shows GWAS for the same dataset, but including genotypes at Chr5:16207115 as a covariate.
+The association on Chr3 and further up Chr5 have now disappeared.
+There is a peak from Chr5:16096526-17765148, which includes and extends the previous region of association.
+The strongest association is Chr5:17025701; genotypes at this SNP are in strong LD with the covariate SNP.
+This is quite odd.
+
+```{r gwas-conditional}
+qqman::manhattan(
+  assoc_data$cond_noK,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size conditioned on top SNP"
+)
+```
+
+Here is the result of GWAS including PC1 at the associated region as a covariate.
+It is alsmost, but not quite, identical to the original Manhattan plot.
+
+```{r gwas-with-pc1}
+qqman::manhattan(
+  assoc_data$pc1,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size conditioned on PC1"
+)
+```
+
+Here is the result of GWAS on those lines that don't have the associated haplotype.
+There are some kinda-significant looking SNPs.
+
+```{r gwas-without-groensvik-samples}
+qqman::manhattan(
+  assoc_data$no_groensvik,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size, excluding the associated haplotype"
+)
+```
+
+Kruskall-Wallis GWAS shows nothing.
+
+```{r kruskall-wallis-gwas}
+
+qqman::manhattan(
+  assoc_data$kruskall_wallis,
+  chr = "chr", bp="ps", p="p_lrt", snp = "rs",
+  main  = "Seed size: Kruskall-Wallis GWAS"
+)
+```

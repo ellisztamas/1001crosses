@@ -1,0 +1,333 @@
+---
+title: "Between-group crosses"
+author: "Tom Ellis"
+date: today
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    self-contained: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, cache.lazy=TRUE)
+# 
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+suppressPackageStartupMessages(library("tidyverse"))
+library("ggpubr")
+library("qqman")
+```
+
+```{r pca-data}
+# List of file paths giving eigenvectors
+eigenvec_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenvec",
+  progeny = "05_results/01_pca/output/F8_imputed.eigenvec"
+)
+# List of file paths giving eigen values
+eigenval_files <- list(
+  parents = "05_results/01_pca/output/parental_lines.eigenval",
+  progeny = "05_results/01_pca/output/F8_imputed.eigenval"
+)
+
+# Import PCA data
+eigenvecs <- lapply(names(eigenvec_files), function(name){
+  filename <- eigenvec_files[[name]]
+  read.table(filename, header=TRUE) %>%
+    as_tibble() %>%
+    mutate(
+      dataset = name,
+      FID = as.character(FID),
+      IID = as.character(IID)
+    )
+})
+names(eigenvecs) <- names(eigenvec_files)
+
+eigenvals <- lapply(names(eigenval_files), function(name){
+  filename <- eigenval_files[[name]]
+  read.table(filename, col.names="eigenval", header=FALSE) %>%
+    as_tibble() %>%
+    mutate(
+      eigenval = round(100*(eigenval / sum(eigenval)), 1),
+      dataset = name
+    )
+})
+names(eigenvals) <- names(eigenval_files)
+```
+
+
+```{r}
+admixture_groups <- read_csv(
+  "01_data/03_parental_genotypes/admixture_groups_filiault_etal_2025.csv",
+  col_names = c("FID", "group"),
+  col_types = 'cc'
+)
+
+eigenvecs$parents <- eigenvecs$parents %>% 
+  left_join(admixture_groups, by = "FID")
+
+```
+
+Here is a PCA for the parents coloured by admixture group, as defined in the 2025 field paper.
+
+* PC1 separates North from South
+* PC2 separates group S2 from everyone else
+* PC3 separates beach lines from everyone else.
+
+```{r pca-admixture-group}
+ggarrange(
+  eigenvecs$parents %>% 
+    ggplot(aes(x=-PC2, y = -PC1, colour = group)) +
+    geom_point() +
+    labs(
+      x = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)"),
+      y = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)")
+    ) +
+    theme_bw(),
+  eigenvecs$parents %>% 
+    ggplot(aes(x=PC3, y = -PC1, colour = group)) +
+    geom_point() +
+    labs(
+      x = paste0("PC3 (", eigenvals$parents$eigenval[3], "%)"),
+      y = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)")
+    ) +
+    theme_bw(),
+  common.legend = TRUE, ncol=2, nrow=1
+)
+```
+
+## Northern vs S1 only
+
+There are a few ways one could split these data up.
+I will start by separating North from S1, and ignore S2 and beach lines based on their PC values.
+
+```{r, include=TRUE}
+eigenvecs$parents <- eigenvecs$parents %>% 
+  mutate(
+    N_vs_S1 = case_when(
+      PC1 < -0.05 ~ "North",
+      (PC1 > 0.015) & (PC2 < 0 ) ~ "South"
+    )
+  ) 
+```
+
+```{r}
+eigenvecs$parents %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = N_vs_S1)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+  ) +
+  theme_bw()
+```
+
+Doing so actually gives us a majority of parental lines.
+
+```{r}
+eigenvecs$parents %>% 
+  # filter( !is.na(N_vs_S1)) %>% 
+  group_by(N_vs_S1) %>% 
+  summarise(
+    n_parents = n()
+  )
+
+```
+
+114 lines have one Northern and one S1 parent, which is... borderline to be honest.
+
+```{r}
+
+northern_line_names <- eigenvecs$parents %>% 
+  filter(N_vs_S1 == "North") %>% 
+  pull(FID)
+southern_line_names <- eigenvecs$parents %>% 
+  filter(N_vs_S1 == "South") %>% 
+  pull(FID)
+
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  mutate(
+    northern_parent = str_detect(FID, paste(northern_line_names, collapse = "|")),
+    southern_parent = str_detect(FID, paste(southern_line_names, collapse = "|")),
+    # either = as.factor(northern_parent + southern_parent)
+    parentage = case_when(
+      northern_parent  & !southern_parent ~ "Northern only",
+      !northern_parent & southern_parent ~ "Southern only",
+      northern_parent  & southern_parent ~ "Both"
+    )
+  ) 
+
+eigenvecs$progeny %>% 
+  group_by(parentage) %>% 
+  summarise(
+    number_of_F8_lines = n()
+  )
+```
+
+The NxS1 lines have the good manners to appear in between lines with only Northern or S1 ancestry.
+
+```{r}
+eigenvecs$progeny %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = parentage)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+  ) +
+  theme_bw()
+
+```
+
+This code subsets the BLUPs for the three phenotypes.
+
+```{r, include=TRUE}
+
+n_by_s1_lines <- eigenvecs$progeny %>% 
+  filter(parentage== "Both") %>% 
+  pull(FID)
+
+f9_phenotype_filenames <- Sys.glob(
+  "03_processing/06_process_phenotypes/output/*F9*.tsv"
+)
+
+outdir <- "05_results/23_admixed_only_GWAS/output/01_subset_lines"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+for(file in f9_phenotype_filenames){
+  
+  outfile <- gsub(
+    pattern = "F9_combined",
+    replacement = "NxS1",
+    basename(file)
+    )
+  
+  read_tsv(
+    file,
+    col_names <- c("FID", "ID", "phenotype"),
+    col_types <- "ccd"
+    ) %>% 
+    filter(ID %in% n_by_s1_lines) %>% 
+    write_tsv(paste0(outdir, "/", outfile), col_names = FALSE)
+  
+}
+
+```
+
+## Northern vs all southern
+
+We could also just take everything from the South, vs the North.
+This will increase sample size, but might confuse the signal if S1 and S2 have different architectures.
+
+```{r, include=TRUE}
+eigenvecs$parents <- eigenvecs$parents %>% 
+  mutate(
+    N_vs_S = case_when(
+      PC1 < -0.05 ~ "North",
+      (PC1 > 0.015)~ "South"
+    )
+  ) 
+```
+
+```{r}
+eigenvecs$parents %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = N_vs_S)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+  ) +
+  theme_bw()
+```
+
+Including S2 parents adds an additional 30 parents
+
+```{r}
+eigenvecs$parents %>% 
+  group_by(N_vs_S) %>% 
+  summarise(
+    n_parents = n()
+  )
+
+```
+
+144 lines have one Northern and one S1 parent, which is still less than one might hope.
+
+```{r}
+
+northern_line_names <- eigenvecs$parents %>% 
+  filter(N_vs_S == "North") %>% 
+  pull(FID)
+southern_line_names <- eigenvecs$parents %>% 
+  filter(N_vs_S == "South") %>% 
+  pull(FID)
+
+eigenvecs$progeny <- eigenvecs$progeny %>% 
+  mutate(
+    northern_parent = str_detect(FID, paste(northern_line_names, collapse = "|")),
+    southern_parent = str_detect(FID, paste(southern_line_names, collapse = "|")),
+    # either = as.factor(northern_parent + southern_parent)
+    parentage = case_when(
+      northern_parent  & !southern_parent ~ "Northern only",
+      !northern_parent & southern_parent ~ "Southern only",
+      northern_parent  & southern_parent ~ "Both"
+    )
+  ) 
+
+eigenvecs$progeny %>% 
+  group_by(parentage) %>% 
+  summarise(
+    number_of_F8_lines = n()
+  )
+```
+
+The adding S2 ancestry adds lines in  the middle.
+
+```{r}
+eigenvecs$progeny %>% 
+  ggplot(aes(x=PC1, y = PC2, colour = parentage)) +
+  geom_point() +
+  labs(
+    x = paste0("PC1 (", eigenvals$parents$eigenval[1], "%)"),
+    y = paste0("PC2 (", eigenvals$parents$eigenval[2], "%)")
+  ) +
+  theme_bw()
+
+```
+
+This code subsets the BLUPs for the three phenotypes.
+
+```{r, include=TRUE}
+
+n_by_s1_lines <- eigenvecs$progeny %>% 
+  filter(parentage== "Both") %>% 
+  pull(FID)
+
+f9_phenotype_filenames <- Sys.glob(
+  "03_processing/06_process_phenotypes/output/*F9*.tsv"
+)
+
+outdir <- "05_results/23_admixed_only_GWAS/output/01_subset_lines"
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+for(file in f9_phenotype_filenames){
+  
+  outfile <- gsub(
+    pattern = "F9_combined",
+    replacement = "NxS",
+    basename(file)
+    )
+  
+  read_tsv(
+    file,
+    col_names <- c("FID", "ID", "phenotype"),
+    col_types <- "ccd"
+    ) %>% 
+    filter(ID %in% n_by_s1_lines) %>% 
+    write_tsv(paste0(outdir, "/", outfile), col_names = FALSE)
+  
+}
+
+```
+
