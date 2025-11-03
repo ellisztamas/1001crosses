@@ -15,6 +15,7 @@ dependencies:
   - gemma
   - ipykernel
   - conda-forge::limix-plot
+  - minimap2
   - multiqc
   - conda-forge::ncurses
   - numpy
@@ -26,9 +27,10 @@ dependencies:
   - plink2
   - python>3.10
   - conda-forge::quarto
-  - r-base
+  - r-base==4.2.0
   - r-ggplot2
   - conda-forge::r-ggpubr
+  - r::r-ggpointdensity
   - conda-forge::r-htmlwidgets
   - conda-forge::r-manhattanly
   - conda-forge::r-optparse
@@ -36,6 +38,7 @@ dependencies:
   - conda-forge::r-qqman
   - conda-forge::r-rprojroot
   - conda-forge::r-tinytex
+  - conda-forge::r-vcfr==1.12.0 
   - r-vctrs=0.5.1
   - samtools
   - scipy
