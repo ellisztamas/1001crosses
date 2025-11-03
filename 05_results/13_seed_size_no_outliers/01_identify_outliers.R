@@ -2,15 +2,14 @@
 
 library(tidyverse)
 
-Sys.glob("03_processing/06_process_phenotypes/output/seed_size_blups_*.tsv")
 
 # === Input files === #
 
 # Import original BLUP files
 filenames <- list(
   parents = "03_processing/06_process_phenotypes/output/seed_size_blups_parents.tsv",
-  rep1    = "03_processing/06_process_phenotypes/output/seed_size_blups_F9_rep1.tsv",
-  rep2    = "03_processing/06_process_phenotypes/output/seed_size_blups_F9_rep2.tsv"
+  rep1    = "03_processing/06_process_phenotypes/output/seed_size_blups_rep1.tsv",
+  rep2    = "03_processing/06_process_phenotypes/output/seed_size_blups_rep2.tsv"
 )
 seed_size_blups <- lapply(
   filenames, read_delim,
@@ -25,30 +24,32 @@ dir.create(outdir, showWarnings = FALSE)
 
 # === Script === #
 
-# Parents and rep1 have three outliers with BLUP values > 0.03
+# There is not really much skew among the parents
 seed_size_blups$parents %>%
   ggplot(aes(x = phenotype)) +
   geom_histogram()
+# There are 3 lines that look outlier-y in cohort 1
 seed_size_blups$rep1 %>%
   ggplot(aes(x = phenotype)) +
   geom_histogram()
-# Rep2 has 1
+# Rep2 has 2
 seed_size_blups$rep2 %>%
   ggplot(aes(x = phenotype)) +
   geom_histogram()
 
 # There is not much overlap between the biggest genotypes in the three cohorts
+# Only 6114x9381 appears twice
 seed_size_blups$parents %>%
   filter(
-    phenotype > 0.03
+    phenotype > 0.025
   )
 seed_size_blups$rep1 %>%
   filter(
-    phenotype > 0.03
+    phenotype > 0.025
   )
 seed_size_blups$rep2 %>%
   filter(
-    phenotype > 0.03
+    phenotype > 0.025
   )
 
 
@@ -59,7 +60,7 @@ for(cohort in names(seed_size_blups)){
   )
   seed_size_blups[[cohort]] %>%
     filter(
-      phenotype < 0.03
+      phenotype < 0.025
     ) %>%
     write_delim(outfile, delim = "\t", col_names = FALSE)
 }

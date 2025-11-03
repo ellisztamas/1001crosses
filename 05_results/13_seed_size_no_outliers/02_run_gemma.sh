@@ -36,22 +36,23 @@ source setup.sh
 
 i=$SLURM_ARRAY_TASK_ID
 
+# Directory with flowering-time BLUPs
+pheno_file_array=(05_results/13_seed_size_no_outliers/output/seed_size*tsv)
+phenotype_file=${pheno_file_array[$i]}
+
 # VCF files for parents and F8s
-parental_snp_matrix=03_processing/04_pieters_VCF/output/parental_snp_matrix.vcf.gz
-F8_rep1_snp_matrix=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep1.vcf.gz
-F8_rep2_snp_matrix=03_processing/04_pieters_VCF/output/F8_snp_matrix_purged_rep2.vcf.gz
+progeny_vcf=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
+parents_vcf=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
 # Array of paths to VCF files.
 # It is really important that these are in the same order as the phenotype files!
-vcf_array=($parental_snp_matrix $F8_rep1_snp_matrix $F8_rep2_snp_matrix)
+vcf_array=($parents_vcf $progeny_vcf $progeny_vcf)
 input_vcf=${vcf_array[$i]}
-
-# Array of phenotype files for the two sets of replicate crosses plus the parents. 
-gemma_input_files=(05_results/13_seed_size_no_outliers/output/seed_size_*.tsv)
-in_phenotype=${gemma_input_files[$i]}
 
 # Additional arguments passed to GEMMA
 # Run all three kinds of statistical test using a minor-allele-frequency of 0.05
 gemma_args="-maf 0.05"
+
+
 
 # === Output files ===
 
@@ -59,24 +60,25 @@ gemma_args="-maf 0.05"
 outdir=05_results/13_seed_size_no_outliers/output
 mkdir -p $outdir
 
+
 # === Script === 
 
 echo "\nVCF file: ${input_vcf}"
-echo "Phenotype file: ${in_phenotype}"
+echo "Phenotype file: ${phenotype_file}"
 echo "Output directory: ${outdir}"
 
 # GWAS with the kinship matrix
 02_library/run_GEMMA_with_without_K.sh \
   --vcf $input_vcf \
-  --phenotypes $in_phenotype \
+  --phenotypes $phenotype_file \
   --outdir $outdir \
   --gemma_args "${gemma_args}"
 
 # Create some plots
 02_library/plot_gwas.py \
-  --input $outdir/with_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+  --input $outdir/with_K/$(basename -s'.tsv' ${phenotype_file}).assoc.txt \
   --outDir $outdir/with_K
 
 02_library/plot_gwas.py \
-  --input $outdir/no_K/$(basename -s'.tsv' ${in_phenotype}).assoc.txt \
+  --input $outdir/no_K/$(basename -s'.tsv' ${phenotype_file}).assoc.txt \
   --outDir $outdir/no_K
