@@ -23,8 +23,8 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # VCF files for parents and F8s
-parents=03_processing/05_imputation/output/parental_lines.vcf.gz
-progeny=03_processing/05_imputation/output/F8_phased_imputed.vcf.gz
+parents=03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz
+progeny=03_processing/09_impute_haplotypes/output/F8_imputed.vcf.gz
 # Make a Bash array of the three VCF files
 vcf_files=($parents $progeny)
 # File to use in this job
@@ -34,7 +34,7 @@ infile=${vcf_files[$i]}
 # === Output === 
 
 # Output directory
-outdir=$scratchdir/03_long_range_ld/${SLURM_JOB_NAME}
+outdir=$scratchdir/03_long_range_ld/01_thin_SNPs
 mkdir -p $outdir
 
 # Updated VCF file with standardised ID labels
@@ -66,5 +66,6 @@ plink \
     --out $output_prefix
 
 echo "Copy the pruning files to the output directory"
+mkdir -p 05_results/03_long_range_ld/output/
 cp ${output_prefix}.snplist 05_results/03_long_range_ld/output/
 

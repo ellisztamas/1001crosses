@@ -26,8 +26,8 @@ source setup.sh
 i=$SLURM_ARRAY_TASK_ID
 
 # # VCF files for parents and F8s
-parents_hdf5=03_processing/05_imputation/output/parental_lines.hdf5
-progeny_hdf5=03_processing/05_imputation/output/F8_phased_imputed.hdf5
+parents_hdf5=03_processing/09_impute_haplotypes/output/parental_lines.hdf5
+progeny_hdf5=03_processing/09_impute_haplotypes/output/F8_imputed.hdf5
 
 # List of SNPs to compare.
 snp_list=05_results/03_long_range_ld/output/parental_lines.snplist

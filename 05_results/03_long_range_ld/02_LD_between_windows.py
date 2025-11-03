@@ -56,7 +56,7 @@ geno_hdf5 = h5py.File(args.genotypes, mode = 'r')
 # Text file giving SNPs that have been pruned for local LD 
 snp_list=pd.read_csv(args.targets, sep="\t", names=['snp'], dtype=str)
 
-# parents_hdf5='03_processing/05_imputation/output/parental_lines.hdf5'
+# parents_hdf5='03_processing/09_impute_haplotypes/output/parental_lines.hdf5'
 # geno_hdf5 = h5py.File(parents_hdf5, mode = 'r')
 # snp_list=pd.read_csv('05_results/03_long_range_ld/output/parental_lines.snplist', sep="\t", names=['snp'], dtype=str)
 # args.threshold=0.3
