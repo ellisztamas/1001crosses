@@ -43,4 +43,8 @@ They are labelled
 
 # Other files
 
-`segregating_parents.txt` is a list of parents I think are segregating somewhere in the genome.
+- `segregating_parents.txt` is a list of parents I think are segregating somewhere in the genome.
+- `admixture_groups_filiault_etal_2025.csv` gives the accessions and their 
+    admixture groups for the lines used in:
+
+> Brachi *et al*. (2025), Life-history trade-offs explain local adaptation in Arabidopsis thaliana, eLife14:RP107477
