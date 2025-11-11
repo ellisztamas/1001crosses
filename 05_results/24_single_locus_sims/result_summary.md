@@ -1,4 +1,4 @@
-# Jointly estimate all SNP effects at once
+# Simulate GWAS datasets with a single locus
 
 **Date:** 4th November 2025
 **Author:** Tom Ellis
@@ -11,6 +11,9 @@ I previously did this for many levels of polygenicity (result 22), but this can
 be challenging to get your head around.
 I also want to check how MAF affects things, and that is a bit much with 
 different levels of polygenicity.
+Previous simulations also used GCTA to simulate phenotypes, but this is limited 
+to simple additive models, and for small sample sizes the heritability ends up
+being only approximate.
 Here I will do some more detailed simulations, but for the case where there is
 only a single causal locus.
 

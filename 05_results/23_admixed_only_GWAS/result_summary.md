@@ -1,4 +1,4 @@
-# Jointly estimate all SNP effects at once
+# GWAS for North-South intercross lines
 
 **Date:** 13th October 2025
 **Author:** Tom Ellis
