@@ -103,10 +103,14 @@ tabix $missing_parents
 # This will be used as a reference panel for the Beagle imputation
 echo "Merging the three VCF files into a single VCF file."
 bcftools merge \
+    $most_parents $incorrect_parents $missing_parents |
+  bcftools annotate \
+    --set-id '%CHROM\_%POS' \
     -O z \
-    -o $merged_vcf \
-    $most_parents $incorrect_parents $missing_parents
+    -o $merged_vcf
 tabix $merged_vcf
+
+ 03_processing/09_impute_haplotypes/output/parental_lines.vcf.gz -Oz -o parental_lines.vcf.gz
 
 echo "Filtering for biallelic SNPs in genes."
 bcftools view \
