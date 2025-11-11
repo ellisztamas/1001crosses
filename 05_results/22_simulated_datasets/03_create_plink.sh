@@ -10,8 +10,8 @@
 
 # SLURM
 #SBATCH --job-name=03_create_plink
-#SBATCH --output=05_results/22_simulated_datasets/slurm/%x-%a.out
-#SBATCH --error=05_results/22_simulated_datasets/slurm/%x-%a.err
+#SBATCH --output=05_results/22_simulated_datasets/slurm/%x.out
+#SBATCH --error=05_results/22_simulated_datasets/slurm/%x.err
 #SBATCH --mem=10GB
 #SBATCH --qos=short
 #SBATCH --time=1:00:00

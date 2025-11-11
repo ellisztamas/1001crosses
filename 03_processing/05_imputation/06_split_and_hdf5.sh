@@ -65,7 +65,7 @@ bcftools view \
     $progeny_vcf
 tabix $cohort2_vcf
 
-Convert to Hdf5 
+# Convert to Hdf5 
 echo "Converting parental VCF to HDF5 format."
 python 02_library/vcf_to_HDF5.py \
     --input  $parents_vcf \

@@ -26,7 +26,7 @@ import warnings
 import argparse
 warnings.filterwarnings('ignore')
 
-# hdf5_file = "03_processing/05_imputation/output/parental_lines.hdf5"
+# hdf5_file = "03_processing/09_impute_haplotypes/output/parental_lines.hdf5"
 # pheno="03_processing/06_process_phenotypes/output/flowering_time_blups_parents.tsv"
 
 parser = argparse.ArgumentParser(
